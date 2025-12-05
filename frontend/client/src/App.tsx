@@ -38,11 +38,13 @@ import IncomePage from '@/pages/income';
 import ExpensesPage from '@/pages/expenses';
 import BalanceSheetPage from '@/pages/balance-sheet';
 import MembershipsPage from '@/pages/memberships';
+import StaffTipsPage from '@/pages/staff-tips';
 import SubscriptionPlansPage from '@/pages/subscription-plans';
 import UniversalBookingPage from '@/pages/universal-booking';
 import Workspaces from '@/pages/admin/Workspaces';
 import WorkspaceView from "@/pages/admin/WorkspaceView";
-import Resources from "@/pages/admin/Resources";
+import BranchManagement from '@/pages/admin/branches';
+import CustomLabelsPage from '@/pages/admin/custom-labels';
 import NotFound from "@/pages/not-found";
 import TopProgressBar from "@/components/TopProgressBar";
 import TeamLogin from "@/pages/team/TeamLogin";
@@ -111,7 +113,8 @@ function Router() {
       <Route path="/dashboard/customers">{() => <ProtectedRoute component={CustomersManagementPage} />}</Route>
       <Route path="/dashboard/admin-center">{() => <ProtectedRoute component={AdminCenterPage} />}</Route>
       <Route path="/dashboard/admin-center/workspaces">{() => <ProtectedRoute component={Workspaces} />}</Route>
-      <Route path="/dashboard/admin-center/resources">{() => <ProtectedRoute component={Resources} />}</Route>
+      <Route path="/dashboard/admin/branches">{() => <ProtectedRoute component={BranchManagement} />}</Route>
+      <Route path="/dashboard/admin/custom-labels">{() => <ProtectedRoute component={CustomLabelsPage} />}</Route>
       <Route path="/dashboard/workspace/:id">{() => <ProtectedRoute component={WorkspaceView} />}</Route>
       <Route path="/dashboard/salespersons">{() => <ProtectedRoute component={SalespersonsPage} />}</Route>
   <Route path="/dashboard/invoices">{() => <ProtectedRoute component={InvoicesPage} />}</Route>
@@ -123,6 +126,8 @@ function Router() {
   <Route path="/dashboard/expenses">{() => <ProtectedRoute component={ExpensesPage} />}</Route>
   <Route path="/dashboard/balance-sheet">{() => <ProtectedRoute component={BalanceSheetPage} />}</Route>
   <Route path="/dashboard/memberships">{() => <ProtectedRoute component={MembershipsPage} />}</Route>
+  <Route path="/dashboard/staff-tips">{() => <ProtectedRoute component={StaffTipsPage} />}</Route>
+      <Route path="/dashboard/account">{() => <ProtectedRoute component={AccountPage} />}</Route>
       <Route path="/dashboard/account">{() => <ProtectedRoute component={AccountPage} />}</Route>
       <Route path="/dashboard/subscription">{() => <ProtectedRoute component={SubscriptionPage} />}</Route>
       <Route component={NotFound} />

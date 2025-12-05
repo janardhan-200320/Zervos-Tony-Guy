@@ -29,6 +29,13 @@ interface Workspace {
   prefix: string;
   maxDigits: number;
   userCustomized?: boolean;
+  // Branch-specific fields
+  type?: 'main' | 'branch';
+  branchCode?: string;
+  branchAddress?: string;
+  branchPhone?: string;
+  branchManager?: string;
+  parentBusinessId?: string;
 }
 
 interface WorkspaceContextType {

@@ -1070,7 +1070,9 @@ export default function TimeSlotsDashboard() {
                     <SelectValue placeholder="Select sales call" />
                   </SelectTrigger>
                   <SelectContent>
-                    {callOptions.length === 0 && <SelectItem value="" disabled>No sales calls found</SelectItem>}
+                    {callOptions.length === 0 && (
+                      <SelectItem value="no-sales-calls" disabled>No sales calls found</SelectItem>
+                    )}
                     {callOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}

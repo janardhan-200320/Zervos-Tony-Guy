@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Plus, Minus, Search, Filter, CalendarX, DollarSign, CreditCard, Smartphone, Banknote, Edit2, Trash2, Clock, CheckCircle2, XCircle, MoreVertical, Pause, RefreshCw, Eye, Mail, Phone, User, MapPin, MessageSquare, QrCode, Copy, Video, PhoneCall, Building2, Link2, BarChart3, PieChart, TrendingUp, Download, Globe, Wifi, WifiOff, FileText, FileSpreadsheet, CalendarDays } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -88,6 +88,64 @@ export default function AppointmentsNew() {
   const [isCustomPlatform, setIsCustomPlatform] = useState(false);
   const [customPlatform, setCustomPlatform] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<{id: string; name: string; price: string; quantity: number}[]>([]);
+
+  const teamMemberOptions = useMemo(
+    () =>
+      teamMembers.reduce((acc: any[], member) => {
+        const rawId =
+          typeof member?.id === 'string' ? member.id : String(member?.id ?? '');
+        const memberId = rawId.trim();
+        if (!memberId) return acc;
+
+        const memberName =
+          typeof member?.name === 'string' && member.name.trim().length > 0
+            ? member.name.trim()
+            : 'Unnamed team member';
+        const memberRole =
+          typeof member?.role === 'string' && member.role.trim().length > 0
+            ? member.role.trim()
+            : undefined;
+
+        acc.push({ ...member, id: memberId, name: memberName, role: memberRole });
+        return acc;
+      }, []),
+    [teamMembers],
+  );
+
+  const serviceOptions = useMemo(
+    () =>
+      services.reduce((acc: any[], service) => {
+        const rawName =
+          typeof service?.name === 'string' ? service.name : String(service?.name ?? '');
+        const serviceName = rawName.trim();
+        if (!serviceName) return acc;
+
+        acc.push({ ...service, name: serviceName });
+        return acc;
+      }, []),
+    [services],
+  );
+
+  const productOptions = useMemo(
+    () =>
+      products.reduce((acc: any[], product) => {
+        const rawId =
+          typeof product?.id === 'string' ? product.id : String(product?.id ?? '');
+        const productId = rawId.trim();
+        if (!productId) return acc;
+
+        const productName =
+          typeof product?.name === 'string' && product.name.trim().length > 0
+            ? product.name.trim()
+            : `Product ${productId}`;
+        const productPrice =
+          typeof product?.price === 'string' ? product.price : String(product?.price ?? '0');
+
+        acc.push({ ...product, id: productId, name: productName, price: productPrice });
+        return acc;
+      }, []),
+    [products],
+  );
   const announceAppointmentsChange = () => {
     try {
       window.dispatchEvent(new CustomEvent('appointments-updated'));
@@ -196,13 +254,123 @@ export default function AppointmentsNew() {
   const loadServices = () => {
     try {
       const currentWorkspace = localStorage.getItem('currentWorkspace') || 'default';
-      const stored = localStorage.getItem(`zervos_services_${currentWorkspace}`);
-      if (stored) {
-        const parsedServices = JSON.parse(stored);
-        // Filter only enabled services
-        const enabledServices = parsedServices.filter((s: any) => s.isEnabled);
-        setServices(enabledServices);
-      }
+      // Force initialize with complete default services
+      const defaultServices = [
+          {
+            id: 'reflex-45',
+            name: 'Foot Reflexology',
+            duration: '45 mins',
+            price: '1000',
+            actualPrice: '1000',
+            currency: 'INR',
+            description: 'Basic foot reflexology session',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'reflex-60',
+            name: 'Foot Reflexology',
+            duration: '60 mins',
+            price: '1300',
+            actualPrice: '1300',
+            currency: 'INR',
+            description: 'Extended foot reflexology session',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'reflex-back-shoulder',
+            name: 'Foot Reflexology (45 Mins) + Back & Shoulder (15 Mins)',
+            duration: '60 mins',
+            price: '1300',
+            actualPrice: '1300',
+            currency: 'INR',
+            description: 'Foot reflexology with back and shoulder treatment',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'reflex-back-arm-shoulder',
+            name: 'Foot Reflexology (45 Mins) + Back, Arm & Shoulder (30 Mins)',
+            duration: '75 mins',
+            price: '1600',
+            actualPrice: '1600',
+            currency: 'INR',
+            description: 'Comprehensive foot reflexology with upper body treatment',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'reflex-full-body',
+            name: 'Foot Reflexology (45 Mins) + Back, Arm, Shoulder, Neck, Hand & Head (45 Mins)',
+            duration: '90 mins',
+            price: '1900',
+            actualPrice: '1900',
+            currency: 'INR',
+            description: 'Complete full body reflexology session',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'package-silver',
+            name: 'Silver Package',
+            duration: 'Package',
+            price: '10000',
+            actualPrice: '12000',
+            offerPrice: '10000',
+            currency: 'INR',
+            description: 'Pay Rs. 10,000 - Get services worth Rs. 12,000',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'package-gold',
+            name: 'Gold Package',
+            duration: 'Package',
+            price: '20000',
+            actualPrice: '26000',
+            offerPrice: '20000',
+            currency: 'INR',
+            description: 'Pay Rs. 20,000 - Get services worth Rs. 26,000',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'package-platinum',
+            name: 'Platinum Package',
+            duration: 'Package',
+            price: '30000',
+            actualPrice: '42000',
+            offerPrice: '30000',
+            currency: 'INR',
+            description: 'Pay Rs. 30,000 - Get services worth Rs. 42,000',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'package-diamond',
+            name: 'Diamond Package',
+            duration: 'Package',
+            price: '40000',
+            actualPrice: '60000',
+            offerPrice: '40000',
+            currency: 'INR',
+            description: 'Pay Rs. 40,000 - Get services worth Rs. 60,000',
+            category: 'Spa & Wellness',
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+          },
+      ];
+      localStorage.setItem(`zervos_services_${currentWorkspace}`, JSON.stringify(defaultServices));
+      setServices(defaultServices);
     } catch (error) {
       console.error('Error loading services:', error);
     }
@@ -224,35 +392,62 @@ export default function AppointmentsNew() {
   };
 
   const addProductToAppointment = (productId: string) => {
-    const product = products.find(p => p.id === productId);
+    const normalizedId = typeof productId === 'string' ? productId.trim() : '';
+    if (!normalizedId) return;
+
+    const product = productOptions.find((p) => {
+      const candidateId = typeof p?.id === 'string' ? p.id.trim() : '';
+      return candidateId === normalizedId;
+    });
     if (!product) return;
-    
-    const existing = selectedProducts.find(p => p.id === productId);
+
+    const safeId = (typeof product.id === 'string' ? product.id.trim() : String(product.id)).trim();
+    if (!safeId) return;
+
+    const safeName =
+      typeof product.name === 'string' && product.name.trim().length > 0
+        ? product.name
+        : `Product ${safeId}`;
+    const safePrice = typeof product.price === 'string' ? product.price : String(product.price ?? '0');
+
+    const existing = selectedProducts.find((p) => p.id === safeId);
     if (existing) {
-      setSelectedProducts(selectedProducts.map(p => 
-        p.id === productId ? { ...p, quantity: p.quantity + 1 } : p
-      ));
+      setSelectedProducts(
+        selectedProducts.map((p) =>
+          p.id === safeId ? { ...p, quantity: p.quantity + 1 } : p,
+        ),
+      );
     } else {
-      setSelectedProducts([...selectedProducts, {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1
-      }]);
+      setSelectedProducts([
+        ...selectedProducts,
+        {
+          id: safeId,
+          name: safeName,
+          price: safePrice,
+          quantity: 1,
+        },
+      ]);
     }
   };
 
   const removeProductFromAppointment = (productId: string) => {
-    setSelectedProducts(selectedProducts.filter(p => p.id !== productId));
+    const normalizedId = typeof productId === 'string' ? productId.trim() : '';
+    if (!normalizedId) return;
+    setSelectedProducts(selectedProducts.filter((p) => p.id !== normalizedId));
   };
 
   const updateProductQuantity = (productId: string, quantity: number) => {
+    const normalizedId = typeof productId === 'string' ? productId.trim() : '';
+    if (!normalizedId) return;
+
     if (quantity <= 0) {
-      removeProductFromAppointment(productId);
+      removeProductFromAppointment(normalizedId);
     } else {
-      setSelectedProducts(selectedProducts.map(p => 
-        p.id === productId ? { ...p, quantity } : p
-      ));
+      setSelectedProducts(
+        selectedProducts.map((p) =>
+          p.id === normalizedId ? { ...p, quantity } : p,
+        ),
+      );
     }
   };
 
@@ -491,8 +686,9 @@ export default function AppointmentsNew() {
 
   const openEditDialog = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    const isCustom = !['Consultation', 'Demo', 'Training', 'Support'].includes(appointment.serviceName);
-    setIsCustomService(isCustom);
+    const serviceNames = services.map(s => s.name);
+    const isCustom = appointment.serviceName && !serviceNames.includes(appointment.serviceName);
+    setIsCustomService(!!isCustom);
     
     // Check if payment method is custom
     const standardPaymentMethods = ['none', 'cash', 'upi', 'card'];
@@ -1612,22 +1808,23 @@ export default function AppointmentsNew() {
                 </div>
                 <div className="space-y-2">
                   <Label>Assigned {company?.teamMemberLabel || 'Staff'}</Label>
-                  <Select 
-                    value={newAppointment.assignedStaff}
-                    onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v })}
+                  <Select
+                    value={newAppointment.assignedStaff || undefined}
+                    onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v.trim() })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={teamMembers.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
+                      <SelectValue placeholder={teamMemberOptions.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {teamMembers.length > 0 ? (
-                        teamMembers.map((member) => (
+                      {teamMemberOptions.length > 0 ? (
+                        teamMemberOptions.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
-                            {member.name} {member.role ? `(${member.role})` : ''}
+                            {member.name}
+                            {member.role ? ` (${member.role})` : ''}
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="none" disabled>No staff available</SelectItem>
+                        <SelectItem value="no-team-members-available" disabled>No staff available</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -1638,15 +1835,16 @@ export default function AppointmentsNew() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Service *</Label>
-                  <Select 
-                    value={isCustomService ? 'custom' : newAppointment.serviceName} 
+                  <Select
+                    value={isCustomService ? 'custom' : newAppointment.serviceName || undefined}
                     onValueChange={(v) => {
                       if (v === 'custom') {
                         setIsCustomService(true);
                         setNewAppointment({ ...newAppointment, serviceName: '' });
                       } else {
                         setIsCustomService(false);
-                        setNewAppointment({ ...newAppointment, serviceName: v, customService: '' });
+                        const nextValue = v.trim();
+                        setNewAppointment({ ...newAppointment, serviceName: nextValue, customService: '' });
                       }
                     }}
                   >
@@ -1654,10 +1852,15 @@ export default function AppointmentsNew() {
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Consultation">Consultation</SelectItem>
-                      <SelectItem value="Demo">Demo</SelectItem>
-                      <SelectItem value="Training">Training</SelectItem>
-                      <SelectItem value="Support">Support</SelectItem>
+                      {serviceOptions.length > 0 ? (
+                        serviceOptions.map((service) => (
+                          <SelectItem key={service.id} value={service.name}>
+                            {service.name} {service.currency === 'INR' ? `- ₹${service.price}` : `- ${service.currency}${service.price}`}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-services-available" disabled>No services available</SelectItem>
+                      )}
                       <SelectItem value="custom">✏️ Custom Service</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1829,27 +2032,10 @@ export default function AppointmentsNew() {
                   </div>
                 )}
 
-                {/* Offline Mode Fields */}
+                {/* Offline Mode - No additional fields needed */}
                 {newAppointment.appointmentMode === 'offline' && (
-                  <div className="space-y-4 bg-teal-50 p-4 rounded-lg border border-teal-200">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Location / Venue</Label>
-                        <Input
-                          value={newAppointment.location}
-                          onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })}
-                          placeholder="Meeting room, office, etc."
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Full Address</Label>
-                        <Input
-                          value={newAppointment.address}
-                          onChange={(e) => setNewAppointment({ ...newAppointment, address: e.target.value })}
-                          placeholder="123 Main St, City, Country"
-                        />
-                      </div>
-                    </div>
+                  <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                    <p className="text-sm text-teal-700">In-person appointment selected</p>
                   </div>
                 )}
               </div>
@@ -1973,7 +2159,7 @@ export default function AppointmentsNew() {
               </div>
 
               {/* Product Add-ons */}
-              {products.length > 0 && (
+              {productOptions.length > 0 && (
                 <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold text-purple-900">🛍️ Product Add-ons</span>
@@ -1987,7 +2173,7 @@ export default function AppointmentsNew() {
                         <SelectValue placeholder="Select products to add..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {products.map((product) => (
+                        {productOptions.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
                             {product.name} - ₹{product.price}
                           </SelectItem>
@@ -2127,22 +2313,23 @@ export default function AppointmentsNew() {
                 </div>
                 <div className="space-y-2">
                   <Label>Assigned {company?.teamMemberLabel || 'Staff'}</Label>
-                  <Select 
-                    value={newAppointment.assignedStaff}
-                    onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v })}
+                  <Select
+                    value={newAppointment.assignedStaff || undefined}
+                    onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v.trim() })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={teamMembers.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
+                      <SelectValue placeholder={teamMemberOptions.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {teamMembers.length > 0 ? (
-                        teamMembers.map((member) => (
+                      {teamMemberOptions.length > 0 ? (
+                        teamMemberOptions.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
-                            {member.name} {member.role ? `(${member.role})` : ''}
+                            {member.name}
+                            {member.role ? ` (${member.role})` : ''}
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="none" disabled>No staff available</SelectItem>
+                        <SelectItem value="no-team-members-available" disabled>No staff available</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -2153,15 +2340,16 @@ export default function AppointmentsNew() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Service *</Label>
-                  <Select 
-                    value={isCustomService ? 'custom' : newAppointment.serviceName} 
+                  <Select
+                    value={isCustomService ? 'custom' : newAppointment.serviceName || undefined}
                     onValueChange={(v) => {
                       if (v === 'custom') {
                         setIsCustomService(true);
                         setNewAppointment({ ...newAppointment, serviceName: '' });
                       } else {
                         setIsCustomService(false);
-                        setNewAppointment({ ...newAppointment, serviceName: v, customService: '' });
+                        const nextValue = v.trim();
+                        setNewAppointment({ ...newAppointment, serviceName: nextValue, customService: '' });
                       }
                     }}
                   >
@@ -2169,10 +2357,15 @@ export default function AppointmentsNew() {
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Consultation">Consultation</SelectItem>
-                      <SelectItem value="Demo">Demo</SelectItem>
-                      <SelectItem value="Training">Training</SelectItem>
-                      <SelectItem value="Support">Support</SelectItem>
+                      {serviceOptions.length > 0 ? (
+                        serviceOptions.map((service) => (
+                          <SelectItem key={service.id} value={service.name}>
+                            {service.name} {service.currency === 'INR' ? `- ₹${service.price}` : `- ${service.currency}${service.price}`}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-services-available" disabled>No services available</SelectItem>
+                      )}
                       <SelectItem value="custom">✏️ Custom Service</SelectItem>
                     </SelectContent>
                   </Select>
@@ -2345,25 +2538,8 @@ export default function AppointmentsNew() {
 
                 {/* Offline Mode Fields (Edit) */}
                 {newAppointment.appointmentMode === 'offline' && (
-                  <div className="space-y-4 bg-teal-50 p-4 rounded-lg border border-teal-200">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Location / Venue</Label>
-                        <Input
-                          value={newAppointment.location}
-                          onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })}
-                          placeholder="Meeting room, office, etc."
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Full Address</Label>
-                        <Input
-                          value={newAppointment.address}
-                          onChange={(e) => setNewAppointment({ ...newAppointment, address: e.target.value })}
-                          placeholder="123 Main St, City, Country"
-                        />
-                      </div>
-                    </div>
+                  <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                    <p className="text-sm text-teal-700">In-person appointment selected</p>
                   </div>
                 )}
               </div>

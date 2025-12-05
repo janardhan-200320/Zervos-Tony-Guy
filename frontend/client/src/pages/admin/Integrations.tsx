@@ -21,16 +21,11 @@ import {
 import { 
   Search, 
   Zap, 
-  Calendar, 
   Video, 
-  Briefcase, 
   CreditCard, 
   MessageSquare, 
-  BarChart3, 
   Share2, 
   HeadphonesIcon,
-  FileText,
-  Globe,
   Linkedin,
   Twitter,
   ChevronDown,
@@ -117,50 +112,6 @@ export default function Integrations({ category }: IntegrationsProps) {
   }, []);
 
   const [integrations, setIntegrations] = useState<Integration[]>([
-    // Most Popular
-    { 
-      id: 'zedunix', 
-      name: 'Zedunix', 
-      description: 'Connect your appointments with Zedunix platform for enhanced business management.',
-      icon: Globe,
-      connected: false,
-      category: 'most-popular'
-    },
-    { 
-      id: 'zoho-crm-popular', 
-      name: 'Zoho CRM', 
-      description: 'Push customer and meetings details to Zoho CRM when an appointment is booked.',
-      icon: Zap,
-      connected: false,
-      category: 'most-popular'
-    },
-
-    // Calendars
-    { 
-      id: 'google-calendar', 
-      name: 'Google Calendar', 
-      description: 'Manage multiple appointments by syncing your calendar',
-      logo: '🗓️',
-      connected: false,
-      category: 'calendars'
-    },
-    { 
-      id: 'outlook-calendar', 
-      name: 'Outlook Calendar', 
-      description: 'Manage multiple appointments by syncing your calendar',
-      logo: '📅',
-      connected: false,
-      category: 'calendars'
-    },
-    { 
-      id: 'zoho-calendar', 
-      name: 'Zoho Calendar', 
-      description: 'Manage multiple appointments by syncing your calendar',
-      logo: '📆',
-      connected: false,
-      category: 'calendars'
-    },
-
     // Video Conferencing
     { 
       id: 'google-meet', 
@@ -193,51 +144,6 @@ export default function Integrations({ category }: IntegrationsProps) {
       icon: Video,
       connected: false,
       category: 'video-conferencing'
-    },
-
-    // CRM & Sales
-    { 
-      id: 'zoho-crm', 
-      name: 'Zoho CRM', 
-      description: 'Push customer and meetings details to Zoho CRM when an appointment is booked.',
-      icon: Briefcase,
-      connected: false,
-      category: 'crm-sales'
-    },
-    { 
-      id: 'bigin', 
-      name: 'Bigin', 
-      description: 'Create contacts and events in Bigin when an appointment is booked.',
-      icon: Briefcase,
-      connected: false,
-      category: 'crm-sales'
-    },
-    { 
-      id: 'salesforce', 
-      name: 'Salesforce', 
-      description: 'Push customer and meetings details to Sales Force when an appointment is booked.',
-      logo: '☁️',
-      connected: false,
-      actionLabel: 'Via Zapier',
-      category: 'crm-sales'
-    },
-    { 
-      id: 'hubspot', 
-      name: 'Hubspot', 
-      description: 'Push customer and meetings details to Hubspot when an appointment is booked.',
-      logo: '🔶',
-      connected: false,
-      actionLabel: 'Via Zapier',
-      category: 'crm-sales'
-    },
-    { 
-      id: 'pipedrive', 
-      name: 'Pipedrive', 
-      description: 'Push customer and meetings details to Pipedrive when an appointment is booked.',
-      logo: '📊',
-      connected: false,
-      actionLabel: 'Via Zapier',
-      category: 'crm-sales'
     },
 
     // Payments
@@ -314,16 +220,6 @@ export default function Integrations({ category }: IntegrationsProps) {
       logo: '📧',
       connected: false,
       category: 'sms'
-    },
-
-    // Analytics
-    { 
-      id: 'google-analytics', 
-      name: 'Google Analytics', 
-      description: 'Track and understand how customers interact with your booking page using Google Analytics.',
-      icon: BarChart3,
-      connected: false,
-      category: 'analytics'
     },
 
     // Connectors
@@ -405,32 +301,6 @@ export default function Integrations({ category }: IntegrationsProps) {
       category: 'support'
     },
 
-    // Accounting & Invoices
-    { 
-      id: 'zoho-books', 
-      name: 'Zoho Books', 
-      description: 'Create and send invoices from Zoho Books for unpaid appointments that are scheduled via Zoho Bookings.',
-      icon: FileText,
-      connected: false,
-      actionLabel: 'Install',
-      category: 'accounting'
-    },
-    { 
-      id: 'quickbooks', 
-      name: 'QuickBooks', 
-      description: 'Sync your appointments with QuickBooks for automated invoicing and accounting.',
-      icon: FileText,
-      connected: false,
-      category: 'accounting'
-    },
-    { 
-      id: 'xero', 
-      name: 'Xero', 
-      description: 'Connect with Xero for seamless invoice generation and financial tracking.',
-      icon: FileText,
-      connected: false,
-      category: 'accounting'
-    },
   ]);
 
   const toggleConnection = (id: string) => {
@@ -616,16 +486,11 @@ export default function Integrations({ category }: IntegrationsProps) {
   };
 
   const categories = [
-    { id: 'most-popular', title: 'Most Popular', icon: Zap },
-    { id: 'calendars', title: 'Calendars', icon: Calendar },
     { id: 'video-conferencing', title: 'Video Conferencing', icon: Video },
-    { id: 'crm-sales', title: 'CRM & Sales', icon: Briefcase },
     { id: 'payments', title: 'Payments', subtitle: 'Powered by Zoho Checkout', icon: CreditCard },
     { id: 'sms', title: 'SMS', icon: MessageSquare },
-    { id: 'analytics', title: 'Analytics', icon: BarChart3 },
     { id: 'connectors', title: 'Connectors', icon: Share2 },
     { id: 'support', title: 'Support', icon: HeadphonesIcon },
-    { id: 'accounting', title: 'Accounting & Invoices', icon: FileText },
   ];
 
   const filteredIntegrations = integrations.filter(int => {

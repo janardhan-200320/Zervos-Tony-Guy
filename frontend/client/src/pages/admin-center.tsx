@@ -1,10 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 
 // Types
 interface SettingCard {
@@ -23,147 +20,29 @@ import {
   Building2, 
   Clock, 
   Globe, 
-  UserCheck, 
-  Users, 
   Folder, 
-  Package, 
-  MapPin, 
-  UsersRound, 
-  BarChart3, 
-  Zap, 
-  Calendar, 
   Video, 
-  Briefcase, 
-  CreditCard, 
   Link2, 
   Bell, 
   Tag, 
   Shield, 
-  Lock, 
-  Key, 
-  Download,
   ChevronRight,
-  Save,
-  X,
-  Plus,
-  Trash2,
-  Check,
-  Upload,
-  FileDown,
-  FileUp,
-  Settings
+  DollarSign,
+  CreditCard,
+  Receipt,
+  Database,
+  FileText,
+  Settings,
+  Smartphone,
+  MessageSquare,
+  Calculator
 } from 'lucide-react';
 import { useLocation } from 'wouter';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-
-interface OrganizationSettings {
-  companyName: string;
-  industry: string;
-  email: string;
-  phone: string;
-  logo: string;
-  brandColor: string;
-  timezone: string;
-  workingDays: string[];
-  workingHoursStart: string;
-  workingHoursEnd: string;
-  bookingUrl: string;
-  metaTitle: string;
-  metaDescription: string;
-  allowGuestBooking: boolean;
-  requireLogin: boolean;
-}
-
-interface Integration {
-  id: string;
-  name: string;
-  type: string;
-  connected: boolean;
-  apiKey?: string;
-}
 
 export default function AdminCenterPage() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('organization');
-  const { toast } = useToast();
-  
-  // Organization Settings
-  const [orgSettings, setOrgSettings] = useState<OrganizationSettings>({
-    companyName: '',
-    industry: '',
-    email: '',
-    phone: '',
-    logo: '',
-    brandColor: '#6366f1',
-    timezone: 'Asia/Kolkata',
-    workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    workingHoursStart: '09:00',
-    workingHoursEnd: '18:00',
-    bookingUrl: 'my-company',
-    metaTitle: 'Book an appointment',
-    metaDescription: 'Schedule a meeting with our team',
-    allowGuestBooking: true,
-    requireLogin: false,
-  });
-
-  // Integrations
-  const [integrations, setIntegrations] = useState<Integration[]>([
-    { id: '1', name: 'Google Calendar', type: 'calendar', connected: false },
-    { id: '2', name: 'Outlook Calendar', type: 'calendar', connected: false },
-    { id: '3', name: 'Zoom', type: 'video', connected: false },
-    { id: '4', name: 'Google Meet', type: 'video', connected: false },
-    { id: '5', name: 'Stripe', type: 'payment', connected: false },
-    { id: '6', name: 'Razorpay', type: 'payment', connected: false },
-    { id: '7', name: 'Zapier', type: 'automation', connected: false },
-    { id: '8', name: 'Webhooks', type: 'automation', connected: false },
-  ]);
-
-  // Workspaces
-  const [workspaces, setWorkspaces] = useState<any[]>([
-    { id: '1', name: 'Main Workspace', members: 5, active: true },
-  ]);
-
-  // Resources
-  const [resources, setResources] = useState<any[]>([
-    { id: '1', name: 'Conference Room A', type: 'room', available: true },
-    { id: '2', name: 'Projector', type: 'equipment', available: true },
-  ]);
-
-  // Locations
-  const [locations, setLocations] = useState<any[]>([
-    { id: '1', name: 'Main Office', address: '123 Business St, City', active: true },
-  ]);
-
-  // Custom Labels
-  const [customLabels, setCustomLabels] = useState({
-    eventTypeLabel: 'Sales Call',
-    teamMemberLabel: 'Salesperson',
-    customerLabel: 'Client',
-    statusLabels: ['Scheduled', 'Completed', 'Cancelled', 'No-show']
-  });
-
-  // Roles
-  const [roles, setRoles] = useState([
-    { id: '1', name: 'Super Admin', permissions: ['all'] },
-    { id: '2', name: 'Admin', permissions: ['manage_bookings', 'manage_team'] },
-    { id: '3', name: 'Staff', permissions: ['view_bookings'] },
-    { id: '4', name: 'Viewer', permissions: ['view_only'] },
-  ]);
 
   const sections: SettingSection[] = [
     {
@@ -183,46 +62,51 @@ export default function AdminCenterPage() {
           icon: Globe,
           title: 'Business Booking Page',
           options: ['Public page URL', 'Page customization', 'SEO settings', 'Social media links']
-        },
-        {
-          icon: UserCheck,
-          title: 'Customer Login Preferences',
-          options: ['Login requirements', 'Guest booking', 'Account creation', 'Password policies']
-        },
-        {
-          icon: Users,
-          title: 'Salespersons',
-          options: ['Manage team', 'Roles & permissions', 'Availability', 'Performance metrics']
         }
       ]
     },
     {
-      title: 'Modules',
+      title: 'Branch Operations',
       cards: [
         {
-          icon: Folder,
-          title: 'Workspaces',
-          options: ['Create workspace', 'Manage teams', 'Workspace settings', 'Access control']
+          icon: Building2,
+          title: 'Branch Management',
+          options: ['Add new branches', 'Switch between branches', 'Branch-specific data', 'Branch statistics', 'Branch settings']
+        }
+      ]
+    },
+    {
+      title: 'Financial Management',
+      cards: [
+        {
+          icon: DollarSign,
+          title: 'Payment Settings',
+          options: ['Payment gateways', 'Currency settings', 'Tax configuration', 'Invoice numbering']
         },
         {
-          icon: Package,
-          title: 'Resources',
-          options: ['Equipment', 'Meeting rooms', 'Shared resources', 'Resource scheduling']
+          icon: CreditCard,
+          title: 'POS Configuration',
+          options: ['Receipt templates', 'Discount rules', 'Default tax rates', 'Payment methods']
         },
         {
-          icon: MapPin,
-          title: 'In-person Locations',
-          options: ['Office addresses', 'Meeting venues', 'Directions', 'Location availability']
+          icon: Calculator,
+          title: 'Accounting Integration',
+          options: ['Chart of accounts', 'Expense categories', 'Income categories', 'Financial reports']
+        }
+      ]
+    },
+    {
+      title: 'Customer Management',
+      cards: [
+        {
+          icon: Database,
+          title: 'Data Management',
+          options: ['Data backup', 'Data export', 'Import customers', 'Bulk operations']
         },
         {
-          icon: UsersRound,
-          title: 'Customers',
-          options: ['Customer database', 'Contact management', 'Booking history', 'Customer tags']
-        },
-        {
-          icon: BarChart3,
-          title: 'Reports',
-          options: ["Today's Report", 'Booking analytics', 'Revenue reports', 'Performance metrics', 'Export data']
+          icon: Receipt,
+          title: 'Loyalty Programs',
+          options: ['Points system', 'Membership tiers', 'Reward rules', 'Expiry settings']
         }
       ]
     },
@@ -230,29 +114,19 @@ export default function AdminCenterPage() {
       title: 'Integrations',
       cards: [
         {
-          icon: Zap,
-          title: 'Most Popular',
-          options: ['Zapier', 'Webhooks', 'API access', 'Make (Integromat)']
-        },
-        {
-          icon: Calendar,
-          title: 'Calendars',
-          options: ['Google Calendar', 'Outlook Calendar', 'Apple Calendar', 'CalDAV sync']
-        },
-        {
           icon: Video,
           title: 'Video Conferencing',
           options: ['Zoom', 'Microsoft Teams', 'Google Meet', 'Custom video links']
         },
         {
-          icon: Briefcase,
-          title: 'CRM & Sales',
-          options: ['Salesforce', 'HubSpot', 'Zoho CRM', 'Pipedrive']
+          icon: MessageSquare,
+          title: 'Communication Channels',
+          options: ['WhatsApp Business API', 'SMS gateway', 'Email service', 'Push notifications']
         },
         {
-          icon: CreditCard,
-          title: 'Payments',
-          options: ['Stripe', 'PayPal', 'Razorpay', 'Square']
+          icon: Smartphone,
+          title: 'Mobile App Settings',
+          options: ['App branding', 'Push notification config', 'App permissions', 'Mobile features']
         }
       ]
     },
@@ -282,22 +156,22 @@ export default function AdminCenterPage() {
       ]
     },
     {
-      title: 'Data Administration',
+      title: 'System & Security',
       cards: [
         {
-          icon: Lock,
-          title: 'Privacy and Security',
-          options: ['Data protection', 'GDPR compliance', 'Privacy policy', 'Cookie settings']
+          icon: Settings,
+          title: 'System Preferences',
+          options: ['Language & region', 'Date & time format', 'Number format', 'Default values']
         },
         {
-          icon: Key,
-          title: 'Domain Authentication',
-          options: ['SSO setup', 'SAML configuration', 'OAuth settings', 'Two-factor auth']
+          icon: FileText,
+          title: 'Audit & Logs',
+          options: ['Activity logs', 'User actions', 'System events', 'Data changes']
         },
         {
-          icon: Download,
-          title: 'Export',
-          options: ['Export bookings', 'Export customers', 'Bulk export', 'Scheduled exports']
+          icon: Database,
+          title: 'Backup & Restore',
+          options: ['Automatic backups', 'Manual backup', 'Restore data', 'Export all data']
         }
       ]
     }
@@ -362,10 +236,10 @@ export default function AdminCenterPage() {
                   {section.cards.map((card, cardIndex) => {
                     const Icon = card.icon;
                     const handleCardClick = () => {
-                      if (card.title === 'Workspaces') {
-                        setLocation('/dashboard/admin-center/workspaces');
-                      } else if (card.title === 'Resources') {
-                        setLocation('/dashboard/admin-center/resources');
+                      if (card.title === 'Branch Management') {
+                        setLocation('/dashboard/admin/branches');
+                      } else if (card.title === 'Custom Labels') {
+                        setLocation('/dashboard/admin/custom-labels');
                       }
                     };
                     return (

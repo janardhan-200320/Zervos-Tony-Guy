@@ -46,49 +46,121 @@ import {
   QrCode,
   MessageSquare,
   ThumbsUp,
+  Building2,
+  Check,
 } from 'lucide-react';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useToast } from '@/hooks/use-toast';
+import { Card as UICard, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import BranchLoginDialog from '@/components/BranchLoginDialog';
 
 const DashboardOverview = () => {
+  const { selectedWorkspace, workspaces, setSelectedWorkspace } = useWorkspace();
+  const { toast } = useToast();
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [refreshKey, setRefreshKey] = useState(0);
   const [showQRDialog, setShowQRDialog] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState<any>(null);
 
-  // Load data from localStorage
+  // Get current branch ID
+  const branchId = selectedWorkspace?.id || 'default';
+
+  const checkBranchAccess = (branchCode: string): boolean => {
+    const accessToken = sessionStorage.getItem(`branch_access_${branchCode}`);
+    if (accessToken) {
+      try {
+        const token = JSON.parse(accessToken);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const handleSwitchBranch = (branch: any) => {
+    // If it's the main branch, allow direct access
+    if (branch.type === 'main') {
+      setSelectedWorkspace(branch);
+      toast({
+        title: 'Branch Switched',
+        description: `Now viewing ${branch.name}`,
+      });
+      return;
+    }
+
+    // If switching to a different branch, check authentication
+    if (branch.id !== selectedWorkspace?.id && branch.branchCode) {
+      const hasAccess = checkBranchAccess(branch.branchCode);
+      
+      if (!hasAccess) {
+        setPendingBranch(branch);
+        setShowLoginDialog(true);
+        return;
+      }
+    }
+
+    setSelectedWorkspace(branch);
+    toast({
+      title: 'Branch Switched',
+      description: `Now viewing ${branch.name}`,
+    });
+  };
+
+  const handleLoginSuccess = () => {
+    if (pendingBranch) {
+      setSelectedWorkspace(pendingBranch);
+      toast({
+        title: 'Branch Switched',
+        description: `Now viewing ${pendingBranch.name}`,
+      });
+      setPendingBranch(null);
+    }
+    setShowLoginDialog(false);
+  };
+
+  const handleLoginClose = () => {
+    setPendingBranch(null);
+    setShowLoginDialog(false);
+  };
+
+  // Load data from localStorage with branch-specific keys
   const appointmentsData = useMemo(() => {
     try {
-      const data = localStorage.getItem('zervos_appointments');
+      const data = localStorage.getItem(`appointments_${branchId}`);
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
-  }, [refreshKey]);
+  }, [refreshKey, branchId]);
 
   const feedbackData = useMemo(() => {
     try {
-      const data = localStorage.getItem('zervos_feedback');
+      const data = localStorage.getItem(`feedback_${branchId}`);
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
-  }, [refreshKey]);
+  }, [refreshKey, branchId]);
 
   const transactionsData = useMemo(() => {
     try {
-      const data = localStorage.getItem('pos_transactions');
+      const data = localStorage.getItem(`pos_transactions_${branchId}`);
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
-  }, [refreshKey]);
+  }, [refreshKey, branchId]);
 
   const leadsData = useMemo(() => {
     try {
-      const data = localStorage.getItem('zervos_leads');
+      const data = localStorage.getItem(`customers_${branchId}`);
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
-  }, [refreshKey]);
+  }, [refreshKey, branchId]);
 
   useEffect(() => {
     const handleStorageChange = () => setRefreshKey(prev => prev + 1);
@@ -266,6 +338,78 @@ const DashboardOverview = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Quick Branch Switcher */}
+        <UICard className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-purple-600" />
+              Quick Branch Switcher
+            </CardTitle>
+            <CardDescription>
+              Switch between branches to view their dashboard data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {workspaces.map((branch) => (
+                <motion.button
+                  key={branch.id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSwitchBranch(branch)}
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                    selectedWorkspace?.id === branch.id
+                      ? 'border-purple-500 bg-purple-100 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-purple-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className={`${branch.color} flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold flex-shrink-0`}>
+                    {branch.initials}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{branch.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {branch.type === 'main' ? 'Main Branch' : branch.branchCode}
+                    </p>
+                  </div>
+                  {selectedWorkspace?.id === branch.id && (
+                    <Check className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                  )}
+                </motion.button>
+              ))}
+            </div>
+          </CardContent>
+        </UICard>
+
+        {/* Branch Indicator Banner */}
+        {selectedWorkspace && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`${selectedWorkspace.color} rounded-xl p-4 shadow-lg`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div className="text-white">
+                  <h3 className="text-lg font-bold">{selectedWorkspace.name}</h3>
+                  <p className="text-sm opacity-90">
+                    {selectedWorkspace.type === 'main' ? 'Main Branch' : `Branch Code: ${selectedWorkspace.branchCode}`}
+                    {selectedWorkspace.branchAddress && ` • ${selectedWorkspace.branchAddress}`}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg bg-white/20 px-4 py-2 backdrop-blur-sm">
+                <span className="text-sm font-medium text-white">
+                  {selectedWorkspace.status}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -275,7 +419,9 @@ const DashboardOverview = () => {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Dashboard Overview</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Welcome back! Here's what's happening with your business today.
+              {selectedWorkspace 
+                ? `Viewing data for ${selectedWorkspace.name}` 
+                : "Welcome back! Here's what's happening with your business today."}
             </p>
           </div>
           <div className="flex gap-2">
@@ -1054,6 +1200,15 @@ const DashboardOverview = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Branch Login Dialog */}
+      <BranchLoginDialog
+        isOpen={showLoginDialog}
+        onClose={handleLoginClose}
+        onSuccess={handleLoginSuccess}
+        branchName={pendingBranch?.name || ''}
+        branchCode={pendingBranch?.branchCode || ''}
+      />
     </DashboardLayout>
   );
 };

@@ -2,11 +2,115 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search } from 'lucide-react';
+import { Search, Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type CustomizationsProps = {
   initialSection?: 'custom-domain' | 'in-product' | 'labels' | 'roles';
 };
+
+function CustomLabelsSection() {
+  const { toast } = useToast();
+  const [labels, setLabels] = useState({
+    workspace: 'Workspace',
+    workspaces: 'Workspaces',
+    eventType: 'Interview',
+    eventTypes: 'Interviews',
+    user: 'Recruiter',
+    users: 'Recruiters',
+    resource: 'Resource',
+    resources: 'Resources',
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    const savedLabels = localStorage.getItem('custom_labels');
+    if (savedLabels) {
+      const parsed = JSON.parse(savedLabels);
+      setLabels(prev => ({
+        ...prev,
+        workspace: parsed.workspace || prev.workspace,
+        workspaces: parsed.workspaces || prev.workspaces,
+        eventType: parsed.eventType || prev.eventType,
+        eventTypes: parsed.eventTypes || prev.eventTypes,
+        user: parsed.user || prev.user,
+        users: parsed.users || prev.users,
+        resource: parsed.resource || prev.resource,
+        resources: parsed.resources || prev.resources,
+      }));
+    }
+  }, []);
+
+  const handleLabelChange = (key: string, value: string) => {
+    setLabels(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    const savedLabels = localStorage.getItem('custom_labels');
+    const existingLabels = savedLabels ? JSON.parse(savedLabels) : {};
+    const updatedLabels = { ...existingLabels, ...labels };
+    
+    localStorage.setItem('custom_labels', JSON.stringify(updatedLabels));
+    window.dispatchEvent(new CustomEvent('custom-labels-updated', { detail: updatedLabels }));
+    
+    toast({
+      title: 'Labels Saved',
+      description: 'Custom labels have been updated successfully',
+    });
+    setHasChanges(false);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Custom Labels</CardTitle>
+        <Button 
+          onClick={handleSave} 
+          disabled={!hasChanges}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          <Save className="mr-2 h-4 w-4" />
+          Save Changes
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-8">
+          {[
+            { key: 'workspace', manyKey: 'workspaces', title: 'Workspaces' },
+            { key: 'eventType', manyKey: 'eventTypes', title: 'Event Type' },
+            { key: 'user', manyKey: 'users', title: 'User' },
+            { key: 'resource', manyKey: 'resources', title: 'Resource' },
+          ].map((label) => (
+            <div key={label.key} className="py-6 border-b">
+              <div className="font-medium mb-4">{label.title}</div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">One</label>
+                  <Input
+                    value={labels[label.key as keyof typeof labels]}
+                    onChange={(e) => handleLabelChange(label.key, e.target.value)}
+                    placeholder="Singular form"
+                    className="font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Many</label>
+                  <Input
+                    value={labels[label.manyKey as keyof typeof labels]}
+                    onChange={(e) => handleLabelChange(label.manyKey, e.target.value)}
+                    placeholder="Plural form"
+                    className="font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Customizations({ initialSection }: CustomizationsProps) {
   const [section, setSection] = useState<'custom-domain' | 'in-product' | 'labels' | 'roles'>(initialSection ?? 'custom-domain');
@@ -110,36 +214,7 @@ export default function Customizations({ initialSection }: CustomizationsProps) 
           )}
 
           {section === 'labels' && (
-            <Card>
-              <CardHeader className="flex items-center justify-between">
-                <CardTitle>Custom Labels</CardTitle>
-                <Button variant="outline">Edit</Button>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-8">
-                  {[
-                    { key: 'workspaces', title: 'Workspaces', one: 'Workspace', many: 'Workspaces' },
-                    { key: 'eventType', title: 'Event Type', one: 'Interview', many: 'Interviews' },
-                    { key: 'user', title: 'User', one: 'Recruiter', many: 'Recruiters' },
-                    { key: 'resource', title: 'Resource', one: 'Resource', many: 'Resources' },
-                  ].map((label) => (
-                    <div key={label.key} className="py-6 border-b">
-                      <div className="font-medium">{label.title}</div>
-                      <div className="mt-3 text-sm text-gray-600 flex justify-between">
-                        <div>
-                          <div className="text-xs text-gray-400">One</div>
-                          <div>{label.one}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-400">Many</div>
-                          <div>{label.many}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CustomLabelsSection />
           )}
 
           {section === 'roles' && (

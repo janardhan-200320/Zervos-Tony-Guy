@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Search, Plus, Check, Calendar } from 'lucide-react';
+import { ChevronDown, Search, Plus, Check, Calendar, Settings2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +8,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useLocation } from 'wouter';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import BranchLoginDialog from './BranchLoginDialog';
 
 interface WorkspaceSelectorProps {
   sidebarOpen: boolean;
@@ -18,24 +19,78 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [, setLocation] = useLocation();
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState<any>(null);
+
+  const checkBranchAccess = (branchCode: string): boolean => {
+    // Check if user has already logged into this branch in this session
+    const accessToken = sessionStorage.getItem(`branch_access_${branchCode}`);
+    if (accessToken) {
+      try {
+        const token = JSON.parse(accessToken);
+        // Token is valid for current session
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
 
   const handleSelectWorkspace = (workspace: any) => {
+    // If it's the main branch, allow direct access
+    if (workspace.type === 'main') {
+      setSelectedWorkspace(workspace);
+      setIsOpen(false);
+      setSearchQuery('');
+      return;
+    }
+
+    // If switching to a different branch, check authentication
+    if (workspace.id !== selectedWorkspace?.id && workspace.branchCode) {
+      const hasAccess = checkBranchAccess(workspace.branchCode);
+      
+      if (!hasAccess) {
+        // Show login dialog
+        setPendingBranch(workspace);
+        setShowLoginDialog(true);
+        setIsOpen(false);
+        return;
+      }
+    }
+
+    // Access granted
     setSelectedWorkspace(workspace);
     setIsOpen(false);
     setSearchQuery('');
-    // Navigate to workspace view
-    setLocation(`/dashboard/workspace/${workspace.id}`);
+  };
+
+  const handleLoginSuccess = () => {
+    if (pendingBranch) {
+      setSelectedWorkspace(pendingBranch);
+      setPendingBranch(null);
+    }
+    setShowLoginDialog(false);
+  };
+
+  const handleLoginClose = () => {
+    setPendingBranch(null);
+    setShowLoginDialog(false);
   };
 
   const handleMySpace = () => {
-    setSelectedWorkspace(null);
+    // Select the main branch
+    const mainBranch = workspaces.find(w => w.type === 'main');
+    if (mainBranch) {
+      setSelectedWorkspace(mainBranch);
+    }
     setIsOpen(false);
     setSearchQuery('');
   };
 
   const handleNewWorkspace = () => {
     setIsOpen(false);
-    setLocation('/dashboard/admin-center/workspaces');
+    setLocation('/dashboard/admin/branches');
   };
 
   const filteredWorkspaces = workspaces.filter(workspace =>
@@ -69,19 +124,19 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
           sideOffset={10}
         >
           <div className="p-4">
-            {/* My Space Option */}
+            {/* Main Branch Option */}
             <button
               onClick={handleMySpace}
               className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors mb-4"
             >
-              <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Calendar size={24} className="text-pink-600" />
+              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Calendar size={24} className="text-amber-600" />
               </div>
               <div className="flex-1 text-left">
-                <h3 className="font-semibold text-gray-900">My Space</h3>
-                <p className="text-sm text-gray-500">Unified view of all Workspaces</p>
+                <h3 className="font-semibold text-gray-900">Main Branch</h3>
+                <p className="text-sm text-gray-500">Primary business location</p>
               </div>
-              {!selectedWorkspace && (
+              {selectedWorkspace?.type === 'main' && (
                 <Check size={20} className="text-purple-600 flex-shrink-0 mt-1" />
               )}
             </button>
@@ -89,12 +144,12 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
             {/* Search Header */}
             <div className="mb-3">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                SWITCH WORKSPACES
+                SWITCH BRANCHES
               </h4>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
                 <Input
-                  placeholder="Search workspaces"
+                  placeholder="Search branches..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9"
@@ -102,21 +157,21 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
               </div>
             </div>
 
-            {/* Workspace List */}
+            {/* Branch List */}
             <div className="space-y-1 max-h-64 overflow-y-auto mb-3">
-              {filteredWorkspaces.map((workspace) => (
+              {filteredWorkspaces.filter(w => w.type === 'branch').map((workspace) => (
                 <button
                   key={workspace.id}
                   onClick={() => handleSelectWorkspace(workspace)}
                   className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors"
                 >
                   <div className={`w-10 h-10 ${workspace.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-sm font-bold text-gray-900">{workspace.initials}</span>
+                    <span className="text-sm font-bold text-white">{workspace.initials}</span>
                   </div>
                   <div className="flex-1 text-left min-w-0">
                     <h4 className="font-semibold text-gray-900 truncate">{workspace.name}</h4>
                     <p className="text-sm text-gray-500">
-                      {workspace.status === 'Active' ? '1 Tutoring' : '0 Tutoring'}
+                      {workspace.branchCode || 'Branch'}
                     </p>
                   </div>
                   {selectedWorkspace?.id === workspace.id && (
@@ -125,24 +180,42 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
                 </button>
               ))}
 
-              {filteredWorkspaces.length === 0 && (
+              {filteredWorkspaces.filter(w => w.type === 'branch').length === 0 && (
                 <div className="text-center py-4 text-gray-500 text-sm">
-                  No workspaces found
+                  No branches found
                 </div>
               )}
             </div>
 
-            {/* New Workspace Button */}
-            <button
-              onClick={handleNewWorkspace}
-              className="w-full flex items-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-sm font-medium"
-            >
-              <Plus size={16} />
-              New workspace
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={handleNewWorkspace}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add New Branch
+              </button>
+              <button
+                onClick={handleNewWorkspace}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Settings2 size={16} />
+                Branch Management
+              </button>
+            </div>
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Branch Login Dialog */}
+      <BranchLoginDialog
+        isOpen={showLoginDialog}
+        onClose={handleLoginClose}
+        onSuccess={handleLoginSuccess}
+        branchName={pendingBranch?.name || ''}
+        branchCode={pendingBranch?.branchCode || ''}
+      />
     </div>
   );
 }

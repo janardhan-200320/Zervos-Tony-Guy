@@ -1,224 +1,187 @@
+﻿import type { ReactNode } from 'react';
 import { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  Check,
-  X,
-  Zap,
-  Crown,
-  Star,
-  Sparkles,
-  ArrowRight,
-  Mail,
-  Phone,
-  Shield,
-  Users,
-  Link2,
-  Calendar,
-  Bell,
-  Palette,
-  CreditCard,
-} from 'lucide-react';
+import { Check, Crown, Shield, Sparkles, Star, ArrowRight, Mail, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
-interface PlanFeature {
+interface SalonPlan {
+  id: string;
   name: string;
-  free?: string | boolean;
-  silver?: string | boolean;
-  gold?: string | boolean;
-  custom?: string | boolean;
-  icon?: React.ReactNode;
+  tagline: string;
+  icon: ReactNode;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  popular?: boolean;
+  features: string[];
+  reportsTitle?: string;
+  reports?: string[];
+  ctaLabel: string;
+  toastDescription: string;
 }
 
-const features: PlanFeature[] = [
+const plans: SalonPlan[] = [
   {
-    name: 'Session Booking Links',
-    free: '1 Link',
-    silver: 'Up to 20 Links',
-    gold: 'Up to 40 Links',
-    custom: 'Negotiated Limit',
-    icon: <Link2 className="h-4 w-4" />,
-  },
-  {
-    name: 'Custom Company Logo',
-    free: false,
-    silver: true,
-    gold: true,
-    custom: true,
-    icon: <Palette className="h-4 w-4" />,
-  },
-  {
-    name: 'Custom Domain Name',
-    free: false,
-    silver: 'No (Add-on)',
-    gold: 'Yes (Included)',
-    custom: true,
-    icon: <Shield className="h-4 w-4" />,
-  },
-  {
-    name: 'Customer Support',
-    free: 'Email Only',
-    silver: 'Standard Priority',
-    gold: 'High Priority',
-    custom: 'Dedicated Account Manager',
-    icon: <Mail className="h-4 w-4" />,
-  },
-  {
-    name: 'Staff & Resource Allocation',
-    free: false,
-    silver: 'Up to 5 Staff',
-    gold: 'Up to 20 Staff',
-    custom: 'Negotiated',
-    icon: <Users className="h-4 w-4" />,
-  },
-  {
-    name: 'Payment Processing',
-    free: 'No (Booking only)',
-    silver: 'Yes (Razorpay)',
-    gold: 'Yes (Razorpay)',
-    custom: true,
-    icon: <CreditCard className="h-4 w-4" />,
-  },
-  {
-    name: 'Automated Scheduling',
-    free: 'Basic',
-    silver: true,
-    gold: true,
-    custom: true,
-    icon: <Calendar className="h-4 w-4" />,
-  },
-  {
-    name: 'Automated Reminders',
-    free: false,
-    silver: 'Yes (Email)',
-    gold: 'Yes (Email + SMS)',
-    custom: true,
-    icon: <Bell className="h-4 w-4" />,
-  },
-  {
-    name: 'Booking Form Customization',
-    free: 'Basic Fields',
-    silver: 'Standard Fields',
-    gold: 'Advanced Fields & Logic',
-    custom: 'Full Customization',
-    icon: <Sparkles className="h-4 w-4" />,
-  },
-];
-
-const plans = [
-  {
-    id: 'free',
-    name: 'Free Trial',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for testing and small-scale operations',
-    icon: <Zap className="h-6 w-6" />,
-    color: 'from-slate-500 to-slate-600',
+    id: 'classic',
+    name: 'Classic Salon - Starter Plan',
+    tagline: 'Perfect for small salons focusing on basic bookings & operations.',
+    icon: <Star className="h-6 w-6" />,
+    color: 'from-slate-500 to-slate-700',
     bgColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
-    popular: false,
+    features: [
+      'Single - user login access',
+      'Booking System',
+      'Point of Sale (POS)',
+      'Staff Member Assignment',
+      'Products & Services Management',
+      'Customer profile management',
+      'Service duration & package builder',
+      'Appointment reminders (SMS/WhatsApp )',
+      'Vendor management',
+      'Bulk Items & Service',
+    ],
+    reportsTitle: 'Reports',
+    reports: [
+      'Basic reports (Daily sales, Service list)',
+      'Total Income',
+      'Product Stock Reports',
+    ],
+    ctaLabel: 'Talk to Us',
+    toastDescription: 'We will help you activate the Classic Salon starter toolkit.',
   },
   {
-    id: 'silver',
-    name: 'Silver Package',
-    price: '$29',
-    period: 'per month',
-    description: 'Great for growing teams and businesses',
-    icon: <Star className="h-6 w-6" />,
+    id: 'pro',
+    name: 'Pro Salon - Business Plan',
+    tagline: 'Best for salons looking to increase engagement & improve retention.',
+    icon: <Sparkles className="h-6 w-6" />,
     color: 'from-blue-500 to-blue-600',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
     popular: true,
+    features: [
+      '5 - user login access',
+      'Role-based permissions (Admin, Cashier, Manager)',
+      'Online Booking System',
+      'Point of Sale (POS)',
+      'Staff Member Assignment',
+      'Products & Services Management',
+      'Vendor management',
+      'WhatsApp Notifications (Booking, reminders, completions)',
+      'Loyalty & Membership System',
+      'Review & rating system',
+      'Discount & promo code system',
+      'Unlimited customer database',
+      'Service duration & package builder',
+    ],
+    reportsTitle: 'Advanced Reports',
+    reports: [
+      'Staff Performance reports',
+      'Product inventory report',
+    ],
+    ctaLabel: 'Request Demo',
+    toastDescription: 'A product specialist will walk you through Pro Salon capabilities.',
   },
   {
-    id: 'gold',
-    name: 'Gold Package',
-    price: '$79',
-    period: 'per month',
-    description: 'Best for established businesses with high volume',
+    id: 'elite',
+    name: 'Elite Salon',
+    tagline: 'Designed for growing salons needing full business automation.',
     icon: <Crown className="h-6 w-6" />,
     color: 'from-amber-500 to-amber-600',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
-    popular: false,
+    features: [
+      'Custom domain',
+      '10 - user login access',
+      'Role-based permissions (Admin, Cashier, Manager)',
+      'Online Booking System',
+      'Point of Sale (POS)',
+      'Staff Member Assignment',
+      'Products & Services Management',
+      'WhatsApp Notifications (Booking, reminders, completions)',
+      'Loyalty & Membership System',
+      'Vendor management',
+      'Service duration & package builder',
+      'Review & rating system',
+      'Auto Birthday & Anniversary Greetings',
+      'Offers & Marketing Automation',
+      'WhatsApp Marketing Campaigns',
+      'Inventory management with stock alerts',
+      'Gift card system',
+      'Accounts management',
+      'HRMS (Attendance, Payroll, Leaves, )',
+      'Multi-branch support (optional add-on)',
+    ],
+    reportsTitle: 'Advanced reports',
+    reports: [
+      'Full financial statements (P&L, Expense tracking, GST reports)',
+      'Stock reports',
+      'Staff timesheet & productivity reports',
+    ],
+    ctaLabel: 'Schedule Consultation',
+    toastDescription: 'We will craft an Elite Salon rollout plan with you.',
   },
   {
-    id: 'custom',
-    name: 'Custom',
-    price: 'Contact Us',
-    period: 'custom pricing',
-    description: 'Tailored solutions for enterprise needs',
-    icon: <Sparkles className="h-6 w-6" />,
+    id: 'enterprise',
+    name: 'enterprises Plan ( Custom Features )',
+    tagline: 'Designed for growing salons needing full business automation.',
+    icon: <Shield className="h-6 w-6" />,
     color: 'from-purple-500 to-purple-600',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
-    popular: false,
+    features: [
+      'Custom domain',
+      '10 - user login access',
+      'Multi - Branch User',
+      'Role-based permissions (Admin, Cashier, Manager)',
+      'Online Booking System',
+      'Point of Sale (POS)',
+      'Staff Member Assignment',
+      'Products & Services Management',
+      'WhatsApp Notifications (Booking, reminders, completions)',
+      'Loyalty & Membership System',
+      'Vendor management',
+      'Service duration & package builder',
+      'Review & rating system',
+      'Auto Birthday & Anniversary Greetings',
+      'Offers & Marketing Automation',
+      'WhatsApp Marketing Campaigns',
+      'Inventory management with stock alerts',
+      'Gift card system',
+      'Accounts management',
+      'HRMS (Attendance, Payroll, Leaves, )',
+    ],
+    reportsTitle: 'Advanced reports',
+    reports: [
+      'Full financial statements (P&L, Expense tracking, GST reports)',
+      'Stock reports',
+      'Staff timesheet & productivity reports',
+      'Report Automation ( To Management )',
+    ],
+    ctaLabel: 'Create Custom Scope',
+    toastDescription: 'Our enterprise team will gather requirements for your custom build.',
   },
+];
+
+const addonModules = [
+  'Website booking widget',
+  'Mobile app (Admin + Staff)',
+  'Custom branding (white-label)',
 ];
 
 export default function SubscriptionPlans() {
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
-  const handleSelectPlan = (planId: string) => {
-    setSelectedPlan(planId);
-    
-    if (planId === 'custom') {
-      toast({
-        title: 'Contact Sales',
-        description: 'Our team will reach out to discuss your custom requirements.',
-      });
-    } else if (planId === 'free') {
-      toast({
-        title: 'Free Trial Active',
-        description: 'You are currently on the free trial plan.',
-      });
-    } else {
-      toast({
-        title: `${planId === 'silver' ? 'Silver' : 'Gold'} Package Selected`,
-        description: 'Proceed to checkout to complete your subscription.',
-      });
-    }
-  };
-
-  const renderFeatureValue = (value: string | boolean, planId: string) => {
-    if (value === true) {
-      return (
-        <div className="flex items-center justify-center">
-          <div className={`rounded-full p-1 ${
-            planId === 'free' ? 'bg-slate-100' :
-            planId === 'silver' ? 'bg-blue-100' :
-            planId === 'gold' ? 'bg-amber-100' :
-            'bg-purple-100'
-          }`}>
-            <Check className={`h-4 w-4 ${
-              planId === 'free' ? 'text-slate-600' :
-              planId === 'silver' ? 'text-blue-600' :
-              planId === 'gold' ? 'text-amber-600' :
-              'text-purple-600'
-            }`} />
-          </div>
-        </div>
-      );
-    }
-    
-    if (value === false) {
-      return (
-        <div className="flex items-center justify-center">
-          <X className="h-4 w-4 text-slate-300" />
-        </div>
-      );
-    }
-    
-    return (
-      <div className="text-center text-sm font-medium text-slate-700">
-        {value}
-      </div>
-    );
+  const handleSelectPlan = (plan: SalonPlan) => {
+    setSelectedPlan(plan.id);
+    toast({
+      title: `${plan.name} selected`,
+      description: plan.toastDescription,
+    });
   };
 
   return (
@@ -236,35 +199,11 @@ export default function SubscriptionPlans() {
             </div>
           </div>
           <h1 className="text-4xl font-bold text-slate-900">
-            Choose Your Perfect Plan
+            Salon Upgrade Plans
           </h1>
           <p className="mt-3 text-lg text-slate-600">
-            Unlock premium features and take your business to the next level
+            Pick the bundle that matches your salon operations and growth stage.
           </p>
-          
-          {/* Billing Toggle */}
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-slate-900' : 'text-slate-500'}`}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-              className="relative inline-flex h-6 w-11 items-center rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all"
-            >
-              <motion.span
-                animate={{ x: billingCycle === 'monthly' ? 2 : 22 }}
-                className="inline-block h-4 w-4 rounded-full bg-white shadow-lg"
-              />
-            </button>
-            <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-slate-900' : 'text-slate-500'}`}>
-              Yearly
-            </span>
-            {billingCycle === 'yearly' && (
-              <Badge className="bg-green-100 text-green-700">
-                Save 20%
-              </Badge>
-            )}
-          </div>
         </motion.div>
 
         {/* Plan Cards */}
@@ -277,8 +216,8 @@ export default function SubscriptionPlans() {
               transition={{ delay: index * 0.1 }}
             >
               <Card
-                className={`relative overflow-hidden border-2 ${plan.borderColor} ${
-                  selectedPlan === plan.id ? 'ring-4 ring-blue-200' : ''
+                className={`relative flex h-full flex-col overflow-hidden border-2 ${plan.borderColor} ${
+                  selectedPlan === plan.id ? 'ring-4 ring-purple-200' : ''
                 } ${plan.popular ? 'shadow-xl' : 'shadow-md'} transition-all hover:shadow-2xl`}
               >
                 {plan.popular && (
@@ -297,60 +236,50 @@ export default function SubscriptionPlans() {
                   <h3 className="mb-2 text-2xl font-bold text-slate-900">
                     {plan.name}
                   </h3>
-                  
-                  <div className="mb-3">
-                    <span className="text-4xl font-extrabold text-slate-900">
-                      {plan.price}
-                    </span>
-                    {plan.price !== 'Contact Us' && (
-                      <span className="ml-2 text-sm text-slate-600">
-                        / {billingCycle === 'yearly' ? 'year' : 'month'}
-                      </span>
-                    )}
-                  </div>
-                  
                   <p className="text-sm text-slate-600">
-                    {plan.description}
+                    {plan.tagline}
                   </p>
                 </div>
                 
-                <div className="p-6">
+                <div className="flex flex-1 flex-col p-6">
                   <Button
-                    onClick={() => handleSelectPlan(plan.id)}
+                    onClick={() => handleSelectPlan(plan)}
                     className={`w-full bg-gradient-to-r ${plan.color} text-white shadow-md transition-all hover:shadow-lg`}
                   >
-                    {plan.id === 'free' ? 'Current Plan' : 
-                     plan.id === 'custom' ? 'Contact Sales' : 
-                     'Upgrade Now'}
+                    {plan.ctaLabel}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                   
-                  <div className="mt-6 space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Key Features
-                    </p>
-                    {features.slice(0, 5).map((feature, idx) => {
-                      const value = feature[plan.id as keyof typeof feature];
-                      return (
-                        <div key={idx} className="flex items-start gap-2">
-                          <div className="mt-0.5">
-                            {value === false ? (
-                              <X className="h-4 w-4 text-slate-300" />
-                            ) : (
-                              <Check className={`h-4 w-4 ${
-                                plan.id === 'free' ? 'text-slate-600' :
-                                plan.id === 'silver' ? 'text-blue-600' :
-                                plan.id === 'gold' ? 'text-amber-600' :
-                                'text-purple-600'
-                              }`} />
-                            )}
-                          </div>
-                          <span className="text-sm text-slate-700">
-                            {feature.name}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Included Features
+                      </p>
+                      <ul className="mt-3 space-y-2">
+                        {plan.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                            <Check className={`mt-0.5 h-4 w-4 ${plan.id === 'pro' ? 'text-blue-600' : plan.id === 'elite' ? 'text-amber-600' : plan.id === 'enterprise' ? 'text-purple-600' : 'text-slate-600'}`} />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {plan.reports && plan.reports.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {plan.reportsTitle || 'Reports'}
+                        </p>
+                        <ul className="mt-3 space-y-2">
+                          {plan.reports.map((report, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                              <Check className={`mt-0.5 h-4 w-4 ${plan.id === 'pro' ? 'text-blue-600' : plan.id === 'elite' ? 'text-amber-600' : plan.id === 'enterprise' ? 'text-purple-600' : 'text-slate-600'}`} />
+                              <span>{report}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -358,79 +287,27 @@ export default function SubscriptionPlans() {
           ))}
         </div>
 
-        {/* Detailed Comparison Table */}
+        {/* Add-on Modules */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4">
-              <h2 className="text-2xl font-bold text-slate-900">
-                Detailed Feature Comparison
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Compare all features across different plans
-              </p>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">
-                      Feature
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-900">
-                      Free Trial
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
-                      Silver Package
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-amber-600">
-                      Gold Package
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-purple-600">
-                      Custom
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {features.map((feature, idx) => (
-                    <motion.tr
-                      key={idx}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.6 + idx * 0.05 }}
-                      className="transition-colors hover:bg-slate-50"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="text-slate-400">
-                            {feature.icon}
-                          </div>
-                          <span className="font-medium text-slate-900">
-                            {feature.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {renderFeatureValue(feature.free || false, 'free')}
-                      </td>
-                      <td className="bg-blue-50/50 px-6 py-4">
-                        {renderFeatureValue(feature.silver || false, 'silver')}
-                      </td>
-                      <td className="bg-amber-50/50 px-6 py-4">
-                        {renderFeatureValue(feature.gold || false, 'gold')}
-                      </td>
-                      <td className="bg-purple-50/50 px-6 py-4">
-                        {renderFeatureValue(feature.custom || false, 'custom')}
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card className="bg-gradient-to-r from-slate-50 to-slate-100 p-6">
+            <h2 className="text-2xl font-bold text-slate-900">
+              ADD-ON MODULES (For Any Plan)
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Optional upgrade features you can layer on top of any subscription.
+            </p>
+            <ul className="mt-4 grid gap-3 md:grid-cols-3">
+              {addonModules.map((module) => (
+                <li key={module} className="flex items-start gap-2 rounded-lg bg-white p-4 shadow-sm">
+                  <Check className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <span className="text-sm text-slate-700">{module}</span>
+                </li>
+              ))}
+            </ul>
           </Card>
         </motion.div>
 
@@ -460,7 +337,7 @@ export default function SubscriptionPlans() {
           </Card>
           
           <Card className="bg-gradient-to-br from-purple-50 to-pink-50 p-6">
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-4 flex items-start gap-3">
               <div className="rounded-full bg-purple-500 p-2">
                 <Mail className="h-5 w-5 text-white" />
               </div>

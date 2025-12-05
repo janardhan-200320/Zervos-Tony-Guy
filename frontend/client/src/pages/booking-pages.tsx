@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -56,6 +57,13 @@ import {
   Phone,
   Mail,
   Building2,
+  ArrowRight,
+  ArrowLeft,
+  Laptop,
+  MessageCircle,
+  ListChecks,
+  Wand2,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -141,6 +149,18 @@ const WEEK_DAYS = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
 ];
 
+const ONLINE_FOCUS_OPTIONS = [
+  'Skin Analysis',
+  'Treatment Planning',
+  'Product Routine Design',
+  'Post-care Follow Up',
+  'Lifestyle Coaching',
+];
+
+const ONLINE_PLATFORMS = ['Google Meet', 'Zoom', 'Microsoft Teams', 'Custom'];
+const AUTO_ASSIGN_HOST_VALUE = 'auto-assign-host';
+const NO_BOOKING_STAFF_VALUE = 'no-booking-staff';
+
 export default function BookingPagesPage() {
   const { toast } = useToast();
   const { selectedWorkspace } = useWorkspace();
@@ -182,6 +202,32 @@ export default function BookingPagesPage() {
       startTime: '09:00',
       endTime: '17:00',
     },
+  });
+
+  const [isOnlineSessionDialogOpen, setIsOnlineSessionDialogOpen] = useState(false);
+  const [onlineSessionStep, setOnlineSessionStep] = useState(0);
+  const [onlineSessionForm, setOnlineSessionForm] = useState({
+    title: 'Signature Online Consultation',
+    description: 'A virtual consultation tailored to understand concerns and craft a routine that works remotely.',
+    focusAreas: ['Skin Analysis'] as string[],
+    duration: 45,
+    price: 0,
+    platform: ONLINE_PLATFORMS[0],
+    meetingLink: '',
+    autoGenerateLink: true,
+    preSessionNotes: 'Ask clients to join 5 minutes early with good lighting and clean face for assessment.',
+    followUpTemplate: 'Thank you for booking your online consultation! We will send a personalized plan after the session.',
+    autoReminders: {
+      email: true,
+      whatsapp: true,
+      sms: false,
+    },
+    availability: {
+      days: ['Monday', 'Wednesday', 'Friday'],
+      startTime: '10:00',
+      endTime: '18:00',
+    },
+    hostStaff: '',
   });
 
   const [staffForm, setStaffForm] = useState({
@@ -340,6 +386,132 @@ export default function BookingPagesPage() {
     });
   };
 
+  const resetOnlineSessionForm = () => {
+    setOnlineSessionForm({
+      title: 'Signature Online Consultation',
+      description: 'A virtual consultation tailored to understand concerns and craft a routine that works remotely.',
+      focusAreas: ['Skin Analysis'],
+      duration: 45,
+      price: 0,
+      platform: ONLINE_PLATFORMS[0],
+      meetingLink: '',
+      autoGenerateLink: true,
+      preSessionNotes: 'Ask clients to join 5 minutes early with good lighting and clean face for assessment.',
+      followUpTemplate: 'Thank you for booking your online consultation! We will send a personalized plan after the session.',
+      autoReminders: {
+        email: true,
+        whatsapp: true,
+        sms: false,
+      },
+      availability: {
+        days: ['Monday', 'Wednesday', 'Friday'],
+        startTime: '10:00',
+        endTime: '18:00',
+      },
+      hostStaff: '',
+    });
+    setOnlineSessionStep(0);
+  };
+
+  const generateMeetingLink = (platform: string) => {
+    const slug = Math.random().toString(36).slice(2, 10);
+    switch (platform) {
+      case 'Google Meet':
+        return `https://meet.google.com/${slug.slice(0, 3)}-${slug.slice(3, 7)}-${slug.slice(7)}`;
+      case 'Zoom':
+        return `https://zoom.us/j/${Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000}`;
+      case 'Microsoft Teams':
+        return `https://teams.microsoft.com/l/meetup-join/${slug}`;
+      default:
+        return `https://your-custom-link/${slug}`;
+    }
+  };
+
+  const handleCreateOnlineSession = () => {
+    if (!onlineSessionForm.title.trim()) {
+      toast({
+        title: 'Add a session title',
+        description: 'Give your online consultation a memorable name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const meetingLink = onlineSessionForm.meetingLink.trim() || (onlineSessionForm.autoGenerateLink
+      ? generateMeetingLink(onlineSessionForm.platform)
+      : '');
+
+    if (!meetingLink) {
+      toast({
+        title: 'Meeting link needed',
+        description: 'Generate or paste a meeting link so clients can join virtually.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const hostStaffMember = staff.find(member => member.id === onlineSessionForm.hostStaff);
+    const focusSummary = onlineSessionForm.focusAreas.length
+      ? onlineSessionForm.focusAreas.join(', ')
+      : 'Personalized guidance';
+
+    const newSession: BookingSession = {
+      id: `session-online-${Date.now()}`,
+      title: onlineSessionForm.title,
+      description: onlineSessionForm.description || `Virtual consultation focused on ${focusSummary.toLowerCase()}.`,
+      duration: onlineSessionForm.duration,
+      price: onlineSessionForm.price * 100,
+      category: 'consultation',
+      color: '#6366F1',
+      isActive: true,
+      bookingType: 'individual',
+      maxParticipants: 1,
+      location: 'online',
+      meetingLink,
+      requirements: [onlineSessionForm.preSessionNotes, onlineSessionForm.followUpTemplate]
+        .filter(Boolean)
+        .join('\n\n'),
+      tags: [
+        'Online',
+        onlineSessionForm.platform,
+        'Virtual Consultation',
+        ...onlineSessionForm.focusAreas,
+        onlineSessionForm.autoReminders.email ? 'Email Reminder' : '',
+        onlineSessionForm.autoReminders.whatsapp ? 'WhatsApp Reminder' : '',
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      assignedStaff: hostStaffMember ? [hostStaffMember.id] : [],
+      availability: {
+        days: onlineSessionForm.availability.days,
+        startTime: onlineSessionForm.availability.startTime,
+        endTime: onlineSessionForm.availability.endTime,
+      },
+    };
+
+    saveSessions([newSession, ...sessions]);
+
+    setBookingForm({
+      sessionId: newSession.id,
+      customerName: '',
+      customerEmail: '',
+      customerPhone: '',
+      bookedDate: new Date().toISOString().split('T')[0],
+      bookedTime: onlineSessionForm.availability.startTime,
+      notes: `Online consultation via ${onlineSessionForm.platform}. Meeting link: ${meetingLink}`,
+      assignedStaff: hostStaffMember ? hostStaffMember.id : '',
+    });
+
+    toast({
+      title: 'Online session ready',
+      description: `${newSession.title} is live with an auto-sharing meeting link.`,
+    });
+
+    setIsOnlineSessionDialogOpen(false);
+    setIsBookingDialogOpen(true);
+    resetOnlineSessionForm();
+    setActiveTab('sessions');
+  };
+
   // Staff CRUD
   const handleAddStaff = () => {
     if (!staffForm.name || !staffForm.email) {
@@ -449,6 +621,28 @@ export default function BookingPagesPage() {
     });
   };
 
+  const onlineSteps = [
+    { title: 'Session basics', description: 'Craft the consultation story', icon: Wand2 },
+    { title: 'Virtual room', description: 'Platform, host & meeting link', icon: Laptop },
+    { title: 'Client journey', description: 'Availability, reminders & prep', icon: MessageCircle },
+  ];
+
+  const isOnlineStepReady = (step: number) => {
+    switch (step) {
+      case 0:
+        return Boolean(onlineSessionForm.title.trim() && onlineSessionForm.description.trim());
+      case 1:
+        return Boolean(
+          onlineSessionForm.platform &&
+          (onlineSessionForm.meetingLink.trim() || onlineSessionForm.autoGenerateLink)
+        );
+      case 2:
+        return onlineSessionForm.availability.days.length > 0;
+      default:
+        return true;
+    }
+  };
+
   // Filtering and searching
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = 
@@ -552,6 +746,18 @@ export default function BookingPagesPage() {
             <Button variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
               Export
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-dashed border-brand-500 text-brand-600 hover:bg-brand-50"
+              onClick={() => {
+                setActiveTab('sessions');
+                resetOnlineSessionForm();
+                setIsOnlineSessionDialogOpen(true);
+              }}
+            >
+              <Video className="h-4 w-4" />
+              Add + Online Session
             </Button>
             <Button 
               onClick={() => {
@@ -689,6 +895,18 @@ export default function BookingPagesPage() {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <Button
+                    variant="outline"
+                    className="border-dashed border-brand-500 text-brand-600 hover:bg-brand-50"
+                    onClick={() => {
+                      resetOnlineSessionForm();
+                      setIsOnlineSessionDialogOpen(true);
+                    }}
+                  >
+                    <Video className="h-4 w-4 mr-2" />
+                    Add + Online Session
+                  </Button>
 
                   <Button
                     onClick={() => {
@@ -1110,6 +1328,498 @@ export default function BookingPagesPage() {
           </TabsContent>
         </Tabs>
 
+        {/* Online Session Wizard */}
+        <Dialog
+          open={isOnlineSessionDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsOnlineSessionDialogOpen(false);
+              resetOnlineSessionForm();
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <Video className="h-5 w-5 text-brand-600" />
+                Launch an Online Session
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Configure the session details, collaboration tools, and reminders before publishing this virtual experience.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+              <div className="space-y-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {onlineSteps.map((step, index) => {
+                      const StepIcon = step.icon;
+                      const isActive = index === onlineSessionStep;
+                      const isComplete = index < onlineSessionStep;
+                      return (
+                        <button
+                          key={step.title}
+                          type="button"
+                          onClick={() => {
+                            if (index <= onlineSessionStep || isOnlineStepReady(index - 1)) {
+                              setOnlineSessionStep(index);
+                            }
+                          }}
+                          className={`flex min-w-[180px] flex-1 items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
+                            isActive
+                              ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
+                              : isComplete
+                                ? 'border-brand-200 bg-white text-brand-500'
+                                : 'border-slate-200 bg-white text-slate-600'
+                          }`}
+                        >
+                          <span className={`flex h-10 w-10 items-center justify-center rounded-full border ${
+                            isActive || isComplete ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-slate-200 text-slate-400'
+                          }`}>
+                            <StepIcon className="h-5 w-5" />
+                          </span>
+                          <span>
+                            <span className="block text-sm font-semibold">{step.title}</span>
+                            <span className="block text-xs text-slate-500">{step.description}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={onlineSessionStep}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                  >
+                    {onlineSessionStep === 0 && (
+                      <div className="space-y-5">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label htmlFor="onlineTitle">Session Title *</Label>
+                            <Input
+                              id="onlineTitle"
+                              value={onlineSessionForm.title}
+                              onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, title: e.target.value })}
+                              placeholder="e.g. Glow Analysis & Ritual Builder"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="onlineDuration">Duration (minutes)</Label>
+                            <Input
+                              id="onlineDuration"
+                              type="number"
+                              value={onlineSessionForm.duration}
+                              onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, duration: parseInt(e.target.value) || 30 })}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="onlineDescription">Hero Description *</Label>
+                          <Textarea
+                            id="onlineDescription"
+                            rows={3}
+                            value={onlineSessionForm.description}
+                            onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, description: e.target.value })}
+                            placeholder="Describe what clients will experience during this virtual consultation."
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Focus Areas</Label>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {ONLINE_FOCUS_OPTIONS.map((focus) => {
+                              const isSelected = onlineSessionForm.focusAreas.includes(focus);
+                              return (
+                                <button
+                                  key={focus}
+                                  type="button"
+                                  onClick={() => {
+                                    setOnlineSessionForm({
+                                      ...onlineSessionForm,
+                                      focusAreas: isSelected
+                                        ? onlineSessionForm.focusAreas.filter((item) => item !== focus)
+                                        : [...onlineSessionForm.focusAreas, focus],
+                                    });
+                                  }}
+                                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                                    isSelected
+                                      ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
+                                      : 'border-slate-200 text-slate-600 hover:border-brand-300'
+                                  }`}
+                                >
+                                  {focus}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label htmlFor="onlinePrice">Consultation Fee (₹)</Label>
+                            <Input
+                              id="onlinePrice"
+                              type="number"
+                              step="0.01"
+                              value={onlineSessionForm.price}
+                              onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, price: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div className="rounded-lg border border-dashed border-brand-300 bg-brand-50/50 p-3 text-xs text-brand-700">
+                            Guide clients on the value they'll receive. Highlight the personalized plan, curated ritual, and follow-up notes they'll get after the call.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {onlineSessionStep === 1 && (
+                      <div className="space-y-5">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label htmlFor="onlinePlatform">Preferred Platform</Label>
+                            <Select
+                              value={onlineSessionForm.platform}
+                              onValueChange={(value) => setOnlineSessionForm({
+                                ...onlineSessionForm,
+                                platform: value,
+                                meetingLink: '',
+                              })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ONLINE_PLATFORMS.map((platform) => (
+                                  <SelectItem key={platform} value={platform}>
+                                    {platform}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="onlineHost">Hosted By</Label>
+                            <Select
+                              value={onlineSessionForm.hostStaff || AUTO_ASSIGN_HOST_VALUE}
+                              onValueChange={(value) => setOnlineSessionForm({
+                                ...onlineSessionForm,
+                                hostStaff: value === AUTO_ASSIGN_HOST_VALUE ? '' : value,
+                              })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Assign a specialist" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={AUTO_ASSIGN_HOST_VALUE}>Auto assign later</SelectItem>
+                                {staff.filter((member) => member.isActive).map((member) => (
+                                  <SelectItem key={member.id} value={member.id}>
+                                    {member.name} · {member.role}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="onlineLink">Meeting Link</Label>
+                          <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                            <Input
+                              id="onlineLink"
+                              value={onlineSessionForm.meetingLink}
+                              onChange={(e) => setOnlineSessionForm({
+                                ...onlineSessionForm,
+                                meetingLink: e.target.value,
+                                autoGenerateLink: false,
+                              })}
+                              placeholder="https://..."
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setOnlineSessionForm((prev) => ({
+                                ...prev,
+                                meetingLink: generateMeetingLink(prev.platform),
+                                autoGenerateLink: false,
+                              }))}
+                              className="flex-shrink-0"
+                            >
+                              <Sparkles className="h-4 w-4 mr-1" />
+                              Generate Link
+                            </Button>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                            <button
+                              type="button"
+                              className={`rounded-full border px-3 py-1 transition ${onlineSessionForm.autoGenerateLink ? 'border-brand-400 bg-brand-50 text-brand-600' : 'border-slate-200 text-slate-500'}`}
+                              onClick={() => setOnlineSessionForm((prev) => ({
+                                ...prev,
+                                autoGenerateLink: !prev.autoGenerateLink,
+                                meetingLink: prev.autoGenerateLink ? prev.meetingLink : '',
+                              }))}
+                            >
+                              {onlineSessionForm.autoGenerateLink ? 'Auto-generate link when published' : 'Switch to auto-generate on publish'}
+                            </button>
+                            <ListChecks className="h-4 w-4" />
+                            Share the link automatically in confirmation emails and WhatsApp reminders.
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="preSession">Pre-session guidance</Label>
+                          <Textarea
+                            id="preSession"
+                            rows={3}
+                            value={onlineSessionForm.preSessionNotes}
+                            onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, preSessionNotes: e.target.value })}
+                            placeholder="Let clients know how to prepare for your virtual consultation."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {onlineSessionStep === 2 && (
+                      <div className="space-y-5">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label className="text-sm">Available Days</Label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {WEEK_DAYS.map((day) => {
+                                const isSelected = onlineSessionForm.availability.days.includes(day);
+                                return (
+                                  <button
+                                    key={day}
+                                    type="button"
+                                    onClick={() => {
+                                      const days = isSelected
+                                        ? onlineSessionForm.availability.days.filter((d) => d !== day)
+                                        : [...onlineSessionForm.availability.days, day];
+                                      setOnlineSessionForm({
+                                        ...onlineSessionForm,
+                                        availability: {
+                                          ...onlineSessionForm.availability,
+                                          days,
+                                        },
+                                      });
+                                    }}
+                                    className={`rounded-full border px-2 py-1 text-xs transition ${
+                                      isSelected
+                                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                                        : 'border-slate-200 text-slate-500 hover:border-brand-300'
+                                    }`}
+                                  >
+                                    {day.slice(0, 3)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="onlineStart">Start Time</Label>
+                              <Input
+                                id="onlineStart"
+                                type="time"
+                                value={onlineSessionForm.availability.startTime}
+                                onChange={(e) => setOnlineSessionForm({
+                                  ...onlineSessionForm,
+                                  availability: { ...onlineSessionForm.availability, startTime: e.target.value },
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="onlineEnd">End Time</Label>
+                              <Input
+                                id="onlineEnd"
+                                type="time"
+                                value={onlineSessionForm.availability.endTime}
+                                onChange={(e) => setOnlineSessionForm({
+                                  ...onlineSessionForm,
+                                  availability: { ...onlineSessionForm.availability, endTime: e.target.value },
+                                })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label>Reminder Channels</Label>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {['email', 'whatsapp', 'sms'].map((channel) => {
+                              const isOn = (onlineSessionForm.autoReminders as Record<string, boolean>)[channel];
+                              const label = channel === 'sms' ? 'SMS' : channel.charAt(0).toUpperCase() + channel.slice(1);
+                              return (
+                                <button
+                                  key={channel}
+                                  type="button"
+                                  onClick={() => setOnlineSessionForm({
+                                    ...onlineSessionForm,
+                                    autoReminders: {
+                                      ...onlineSessionForm.autoReminders,
+                                      [channel]: !isOn,
+                                    },
+                                  })}
+                                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                                    isOn
+                                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                                      : 'border-slate-200 text-slate-500 hover:border-brand-300'
+                                  }`}
+                                >
+                                  {label} Reminder
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="onlineFollowUp">Follow-up message</Label>
+                          <Textarea
+                            id="onlineFollowUp"
+                            rows={3}
+                            value={onlineSessionForm.followUpTemplate}
+                            onChange={(e) => setOnlineSessionForm({ ...onlineSessionForm, followUpTemplate: e.target.value })}
+                            placeholder="Message that clients receive after the consultation."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6 flex items-center justify-between border-t pt-4">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          if (onlineSessionStep === 0) {
+                            setIsOnlineSessionDialogOpen(false);
+                            resetOnlineSessionForm();
+                            return;
+                          }
+                          setOnlineSessionStep((prev) => Math.max(0, prev - 1));
+                        }}
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        {onlineSessionStep === 0 ? 'Cancel' : 'Back'}
+                      </Button>
+
+                      <div className="flex gap-2">
+                        {onlineSessionStep < onlineSteps.length - 1 && (
+                          <Button
+                            onClick={() => setOnlineSessionStep((prev) => Math.min(prev + 1, onlineSteps.length - 1))}
+                            disabled={!isOnlineStepReady(onlineSessionStep)}
+                            className="bg-gradient-to-r from-brand-500 to-purple-600"
+                          >
+                            Next
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        )}
+                        {onlineSessionStep === onlineSteps.length - 1 && (
+                          <Button
+                            onClick={handleCreateOnlineSession}
+                            disabled={!isOnlineStepReady(onlineSessionStep)}
+                            className="bg-gradient-to-r from-brand-500 to-purple-600"
+                          >
+                            Launch Online Session
+                            <Sparkles className="ml-2 h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-4"
+              >
+                <Card className="border-brand-200 bg-gradient-to-br from-brand-50 to-purple-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Laptop className="h-4 w-4 text-brand-600" />
+                      Client Preview
+                    </CardTitle>
+                    <CardDescription>
+                      This is what guests will see on the booking page and confirmation email.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm text-slate-700">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{onlineSessionForm.title || 'Signature Online Consultation'}</p>
+                      <p className="mt-1 text-xs text-slate-500">{onlineSessionForm.description || 'A virtual deep-dive with our specialists to help you plan the perfect ritual.'}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/80 p-3 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+                        <span>{onlineSessionForm.platform}</span>
+                        <span>{onlineSessionForm.duration} min</span>
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        <strong>Focus:</strong> {onlineSessionForm.focusAreas.join(', ') || 'Personalized guidance'}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        <strong>Fee:</strong> {onlineSessionForm.price ? `₹${onlineSessionForm.price.toFixed(2)}` : 'Complimentary'}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600">Reminders</p>
+                      <ul className="mt-1 space-y-1 text-xs text-slate-500">
+                        {Object.entries(onlineSessionForm.autoReminders)
+                          .filter(([, enabled]) => enabled)
+                          .map(([channel]) => (
+                            <li key={channel} className="flex items-center gap-2">
+                              <CheckCircle className="h-3.5 w-3.5 text-brand-500" />
+                              {channel === 'sms' ? 'SMS Reminder' : `${channel.charAt(0).toUpperCase() + channel.slice(1)} Reminder`}
+                            </li>
+                          ))}
+                        {Object.values(onlineSessionForm.autoReminders).every((enabled) => !enabled) && (
+                          <li className="flex items-center gap-2 text-slate-400">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            No automated reminders selected yet
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border border-dashed border-brand-200 bg-white/70 p-3 text-xs text-slate-600">
+                      <div className="flex items-center gap-2 text-brand-600">
+                        <MessageCircle className="h-4 w-4" />
+                        Follow-up note:
+                      </div>
+                      <p className="mt-1 leading-relaxed">
+                        {onlineSessionForm.followUpTemplate || 'We will share your personalized plan and shopping list after the call.'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-semibold text-slate-800">Live meeting link</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-slate-600">
+                    {onlineSessionForm.meetingLink ? (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 break-all">
+                        {onlineSessionForm.meetingLink}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-slate-400">
+                        Link will be auto-generated when you publish this session.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Session Dialog */}
         <Dialog open={isSessionDialogOpen} onOpenChange={(open) => {
           if (!open) {
@@ -1120,6 +1830,9 @@ export default function BookingPagesPage() {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingSession ? 'Edit Session' : 'Create New Session'}</DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Provide core information, pricing, and availability for this in-person or hybrid service.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1332,6 +2045,9 @@ export default function BookingPagesPage() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingStaff ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Capture contact details, roles, and availability so team members can be scheduled correctly.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1469,6 +2185,9 @@ export default function BookingPagesPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Booking</DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Select the session, assign a specialist, and confirm the client details to reserve a slot.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div>
@@ -1538,12 +2257,18 @@ export default function BookingPagesPage() {
 
               <div>
                 <Label htmlFor="assignedStaffSelect">Assign Staff</Label>
-                <Select value={bookingForm.assignedStaff} onValueChange={(value) => setBookingForm({ ...bookingForm, assignedStaff: value })}>
+                <Select
+                  value={bookingForm.assignedStaff || NO_BOOKING_STAFF_VALUE}
+                  onValueChange={(value) => setBookingForm({
+                    ...bookingForm,
+                    assignedStaff: value === NO_BOOKING_STAFF_VALUE ? '' : value,
+                  })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select staff member" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No staff assigned</SelectItem>
+                    <SelectItem value={NO_BOOKING_STAFF_VALUE}>No staff assigned</SelectItem>
                     {staff.filter(s => s.isActive).map(member => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name} - {member.role}

@@ -250,7 +250,6 @@ async function main() {
     console.log('   - 50 appointments created');
     console.log(`   - ${resources.length} resources created`);
     console.log('   - 30 resource bookings created');
-    console.log('\n👉 Visit http://localhost:5173/dashboard/admin/reports to see the data!');
     
   } catch (error) {
     console.error('\n❌ Error:', error.message);

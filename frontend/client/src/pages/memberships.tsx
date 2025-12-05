@@ -209,6 +209,9 @@ export default function MembershipsPage() {
     points: '',
     benefits: [''],
     color: 'from-blue-500 to-cyan-500',
+    colorType: 'preset', // 'preset' | 'custom'
+    startColor: '#3b82f6',
+    endColor: '#06b6d4',
   });
 
   // Load customers and calculate their tiers
@@ -247,7 +250,20 @@ export default function MembershipsPage() {
       const workspaceId = selectedWorkspace?.id || 'default';
       const stored = localStorage.getItem(`membership_plans_${workspaceId}`);
       if (stored) {
-        setMembershipPlans(JSON.parse(stored));
+        try {
+          const parsed = JSON.parse(stored);
+          // Normalize older plans to include colorType/startColor/endColor
+          const normalized = parsed.map((p: any) => ({
+            ...p,
+            colorType: p.colorType || (p.color ? 'preset' : 'preset'),
+            startColor: p.startColor || '#3b82f6',
+            endColor: p.endColor || '#06b6d4',
+            color: p.color || 'from-blue-500 to-cyan-500',
+          }));
+          setMembershipPlans(normalized);
+        } catch (e) {
+          setMembershipPlans(JSON.parse(stored));
+        }
       } else {
         // Initialize with default plans
         const defaultPlans = [
@@ -598,7 +614,7 @@ export default function MembershipsPage() {
       return;
     }
 
-    const newPlan = {
+    const newPlan: any = {
       id: `plan_${Date.now()}`,
       name: planFormData.name,
       price: parseInt(planFormData.price) * 100, // Convert to cents
@@ -606,8 +622,16 @@ export default function MembershipsPage() {
       discount: parseInt(planFormData.discount) || 0,
       points: parseInt(planFormData.points) || 0,
       benefits: planFormData.benefits.filter(b => b.trim() !== ''),
-      color: planFormData.color,
     };
+
+    if (planFormData.colorType === 'custom') {
+      newPlan.colorType = 'custom';
+      newPlan.startColor = planFormData.startColor;
+      newPlan.endColor = planFormData.endColor;
+    } else {
+      newPlan.colorType = 'preset';
+      newPlan.color = planFormData.color;
+    }
 
     const updated = [...membershipPlans, newPlan];
     saveMembershipPlans(updated);
@@ -625,7 +649,7 @@ export default function MembershipsPage() {
       return;
     }
 
-    const updatedPlan = {
+    const updatedPlan: any = {
       ...editingPlan,
       name: planFormData.name,
       price: parseInt(planFormData.price) * 100,
@@ -633,8 +657,20 @@ export default function MembershipsPage() {
       discount: parseInt(planFormData.discount) || 0,
       points: parseInt(planFormData.points) || 0,
       benefits: planFormData.benefits.filter(b => b.trim() !== ''),
-      color: planFormData.color,
     };
+
+    if (planFormData.colorType === 'custom') {
+      updatedPlan.colorType = 'custom';
+      updatedPlan.startColor = planFormData.startColor;
+      updatedPlan.endColor = planFormData.endColor;
+      // remove preset color if any
+      delete updatedPlan.color;
+    } else {
+      updatedPlan.colorType = 'preset';
+      updatedPlan.color = planFormData.color;
+      delete updatedPlan.startColor;
+      delete updatedPlan.endColor;
+    }
 
     const updated = membershipPlans.map(p => p.id === editingPlan.id ? updatedPlan : p);
     saveMembershipPlans(updated);
@@ -659,6 +695,9 @@ export default function MembershipsPage() {
       points: plan.points.toString(),
       benefits: plan.benefits.length > 0 ? plan.benefits : [''],
       color: plan.color,
+      colorType: plan.colorType || 'preset',
+      startColor: plan.startColor || '#3b82f6',
+      endColor: plan.endColor || '#06b6d4',
     });
     setShowEditPlanDialog(true);
   };
@@ -673,6 +712,9 @@ export default function MembershipsPage() {
       points: '',
       benefits: [''],
       color: 'from-blue-500 to-cyan-500',
+      colorType: 'preset',
+      startColor: '#3b82f6',
+      endColor: '#06b6d4',
     });
   };
 
@@ -1162,7 +1204,10 @@ export default function MembershipsPage() {
                 >
                   <Card className="h-full border-2 hover:shadow-xl transition-all">
                     <CardContent className="p-6">
-                      <div className={`w-full rounded-xl bg-gradient-to-r ${plan.color} p-4 mb-4 text-white`}>
+                      <div
+                        className={`w-full rounded-xl p-4 mb-4 text-white relative overflow-hidden ${plan.colorType !== 'custom' && plan.color ? `bg-gradient-to-r ${plan.color}` : ''}`}
+                        style={plan.colorType === 'custom' ? { background: `linear-gradient(90deg, ${plan.startColor}, ${plan.endColor})` } : undefined}
+                      >
                         <h3 className="text-2xl font-bold mb-1">{plan.name}</h3>
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-bold">₹{(plan.price / 100).toFixed(0)}</span>
@@ -1521,20 +1566,52 @@ export default function MembershipsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Color Gradient</Label>
-                <Select value={planFormData.color} onValueChange={(value) => setPlanFormData({ ...planFormData, color: value })}>
+                <div className="flex items-center justify-between">
+                  <Label>Color Gradient</Label>
+                  <div className="w-20 h-8 rounded-md overflow-hidden border" aria-hidden>
+                    {planFormData.colorType === 'custom' ? (
+                      <div className="w-full h-full" style={{ background: `linear-gradient(90deg, ${planFormData.startColor}, ${planFormData.endColor})` }} />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-r ${planFormData.color}`} />
+                    )}
+                  </div>
+                </div>
+                <Select value={planFormData.colorType === 'custom' ? 'custom' : planFormData.color} onValueChange={(value) => {
+                  if (value === 'custom') {
+                    setPlanFormData({ ...planFormData, colorType: 'custom' });
+                  } else {
+                    setPlanFormData({ ...planFormData, colorType: 'preset', color: value });
+                  }
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="from-blue-500 to-cyan-500">Blue</SelectItem>
                     <SelectItem value="from-purple-500 to-pink-500">Purple</SelectItem>
-                    <SelectItem value="from-amber-500 to-orange-500">Gold</SelectItem>
+                    <SelectItem value="from-yellow-400 to-yellow-600">Gold (Yellow)</SelectItem>
+                    <SelectItem value="from-amber-500 to-orange-500">Gold (Amber)</SelectItem>
+                    <SelectItem value="from-orange-400 to-orange-600">Bronze/Orange</SelectItem>
+                    <SelectItem value="from-gray-300 to-gray-500">Silver/Gray</SelectItem>
                     <SelectItem value="from-green-500 to-emerald-500">Green</SelectItem>
                     <SelectItem value="from-red-500 to-rose-500">Red</SelectItem>
                     <SelectItem value="from-slate-700 to-slate-900">Platinum</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {planFormData.colorType === 'custom' && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Start Color</Label>
+                      <input type="color" value={planFormData.startColor} onChange={(e) => setPlanFormData({ ...planFormData, startColor: e.target.value })} className="w-12 h-8 p-0 border rounded" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>End Color</Label>
+                      <input type="color" value={planFormData.endColor} onChange={(e) => setPlanFormData({ ...planFormData, endColor: e.target.value })} className="w-12 h-8 p-0 border rounded" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1648,20 +1725,52 @@ export default function MembershipsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Color Gradient</Label>
-                <Select value={planFormData.color} onValueChange={(value) => setPlanFormData({ ...planFormData, color: value })}>
+                <div className="flex items-center justify-between">
+                  <Label>Color Gradient</Label>
+                  <div className="w-20 h-8 rounded-md overflow-hidden border" aria-hidden>
+                    {planFormData.colorType === 'custom' ? (
+                      <div className="w-full h-full" style={{ background: `linear-gradient(90deg, ${planFormData.startColor}, ${planFormData.endColor})` }} />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-r ${planFormData.color}`} />
+                    )}
+                  </div>
+                </div>
+                <Select value={planFormData.colorType === 'custom' ? 'custom' : planFormData.color} onValueChange={(value) => {
+                  if (value === 'custom') {
+                    setPlanFormData({ ...planFormData, colorType: 'custom' });
+                  } else {
+                    setPlanFormData({ ...planFormData, colorType: 'preset', color: value });
+                  }
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="from-blue-500 to-cyan-500">Blue</SelectItem>
                     <SelectItem value="from-purple-500 to-pink-500">Purple</SelectItem>
-                    <SelectItem value="from-amber-500 to-orange-500">Gold</SelectItem>
+                    <SelectItem value="from-yellow-400 to-yellow-600">Gold (Yellow)</SelectItem>
+                    <SelectItem value="from-amber-500 to-orange-500">Gold (Amber)</SelectItem>
+                    <SelectItem value="from-orange-400 to-orange-600">Bronze/Orange</SelectItem>
+                    <SelectItem value="from-gray-300 to-gray-500">Silver/Gray</SelectItem>
                     <SelectItem value="from-green-500 to-emerald-500">Green</SelectItem>
                     <SelectItem value="from-red-500 to-rose-500">Red</SelectItem>
                     <SelectItem value="from-slate-700 to-slate-900">Platinum</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {planFormData.colorType === 'custom' && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Start Color</Label>
+                      <input type="color" value={planFormData.startColor} onChange={(e) => setPlanFormData({ ...planFormData, startColor: e.target.value })} className="w-12 h-8 p-0 border rounded" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>End Color</Label>
+                      <input type="color" value={planFormData.endColor} onChange={(e) => setPlanFormData({ ...planFormData, endColor: e.target.value })} className="w-12 h-8 p-0 border rounded" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

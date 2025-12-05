@@ -57,49 +57,28 @@ type Product = {
 
 type Transaction = POSTransaction;
 
-// Sample services (prices in cents). These represent service offerings like on the booking system.
-const SAMPLE_PRODUCTS: Product[] = [
-  { id: 's1', name: 'Beard Design Session', price: 401500, description: 'Professional beard styling (30 min)', category: 'Beauty' },
-  { id: 's2', name: 'Facial Treatment', price: 79900, description: '60 min facial cleansing and mask', category: 'Spa' },
-  { id: 's3', name: 'Coffee Tasting Session', price: 39900, description: 'Guided coffee tasting', category: 'Wellness' },
-  { id: 's4', name: 'Haircut', price: 59900, description: 'Standard haircut', category: 'Beauty' },
-  { id: 's5', name: 'Massage (30min)', price: 129900, description: 'Relaxing massage', category: 'Spa' },
-];
+// Sample services (prices in cents)
+const SAMPLE_PRODUCTS: Product[] = [];
 
 const SAMPLE_TRANSACTIONS: Transaction[] = [
   {
-    id: 'POS-20251107-001',
-    customer: { name: 'Vaishak', email: 'vaishak@example.com' },
-    items: [{ productId: 's1', qty: 1, price: 401500 }],
-    date: '2025-11-06',
-    amount: 401500,
+    id: 'POS-20251203-001',
+    customer: { name: 'Customer', email: 'customer@example.com' },
+    items: [{ productId: 's1', qty: 1, price: 100000 }],
+    date: '2025-12-03',
+    amount: 100000,
     status: 'Completed',
-    staff: 'Gujjh',
+    staff: 'Staff',
     openBalance: 0,
     totalReturn: 0,
-    balanceAmount: 401500,
-    orderValue: 401500,
-    currency: '₹',
-  },
-  {
-    id: 'POS-20251107-002',
-    customer: { name: 'Alice', email: 'alice@example.com' },
-    items: [{ productId: 's3', qty: 2, price: 39900 }],
-    date: '2025-11-05',
-    amount: 79800,
-    status: 'Completed',
-    staff: 'John',
-    openBalance: 0,
-    totalReturn: 0,
-    balanceAmount: 79800,
-    orderValue: 79800,
+    balanceAmount: 100000,
+    orderValue: 100000,
     currency: '₹',
   },
 ];
 
 const SAMPLE_APPOINTMENTS = [
-  { id: 'BOOK-1001', label: 'Session - Beard Design (11/06/2025)' },
-  { id: 'BOOK-1002', label: 'Session - Coffee Tasting (11/05/2025)' },
+  { id: 'BOOK-1001', label: 'Session - Foot Reflexology (12/03/2025)' },
 ];
 
 export default function POSPage() {
