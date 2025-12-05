@@ -109,6 +109,7 @@ export default function TeamMembersPage() {
     } catch {}
   }, []);
 
+  /*
   const defaultMembers = [
     {
       id: '1',
@@ -138,6 +139,7 @@ export default function TeamMembersPage() {
       availability: 'Tue-Sat, 9 AM - 5 PM'
     },
   ];
+  */
 
   // Load team members when workspace changes
   useEffect(() => {

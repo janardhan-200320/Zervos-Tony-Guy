@@ -361,47 +361,9 @@ export default function CustomersPage() {
       );
       
       // If no team members found, add some default ones
-      if (uniqueMembers.length === 0) {
-        const defaultMembers = [
-          {
-            id: 'tm1',
-            name: 'Sarah Johnson',
-            email: 'sarah@company.com',
-            role: 'Sales Manager',
-            phone: '+1 (555) 234-5678',
-            isActive: true
-          },
-          {
-            id: 'tm2',
-            name: 'Michael Chen',
-            email: 'michael@company.com',
-            role: 'Account Executive',
-            phone: '+1 (555) 345-6789',
-            isActive: true
-          },
-          {
-            id: 'tm3',
-            name: 'Emily Rodriguez',
-            email: 'emily@company.com',
-            role: 'Customer Success',
-            phone: '+1 (555) 456-7890',
-            isActive: true
-          },
-          {
-            id: 'tm4',
-            name: 'David Thompson',
-            email: 'david@company.com',
-            role: 'Business Development',
-            phone: '+1 (555) 567-8901',
-            isActive: true
-          }
-        ];
-        setTeamMembers(defaultMembers);
-        // Optionally save to localStorage
-        localStorage.setItem('zervos_team_members', JSON.stringify(defaultMembers));
-      } else {
+      
         setTeamMembers(uniqueMembers);
-      }
+      
     } catch (error) {
       console.error('Error loading team members:', error);
     }

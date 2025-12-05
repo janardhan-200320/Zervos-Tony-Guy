@@ -175,48 +175,90 @@ export default function POSRegister() {
   useEffect(() => {
     loadTeamMembers();
     loadExistingCustomers();
+    
+    // Listen for team member updates from team-members.tsx page
+    const handleTeamMembersUpdate = () => {
+      loadTeamMembers();
+    };
+    
+    window.addEventListener('team-members-updated', handleTeamMembersUpdate);
+    
+    return () => {
+      window.removeEventListener('team-members-updated', handleTeamMembersUpdate);
+    };
   }, []);
 
   const loadTeamMembers = () => {
     try {
       const currentWorkspace = localStorage.getItem('zervos_current_workspace') || 'default';
       const members: TeamMember[] = [];
+      const seenIds = new Set<string>();
       
-      // Try workspace-specific key first
+      // Priority 1: Try workspace-specific key (matching team-members.tsx)
       const workspaceKey = `zervos_team_members::${currentWorkspace}`;
       const workspaceData = localStorage.getItem(workspaceKey);
       if (workspaceData) {
         const parsed = JSON.parse(workspaceData);
         if (Array.isArray(parsed)) {
-          members.push(...parsed.filter((m: any) => m.status === 'active' || !m.status));
+          parsed.forEach((m: any) => {
+            if (!seenIds.has(m.id)) {
+              members.push(m);
+              seenIds.add(m.id);
+            }
+          });
         }
       }
       
-      // Also try default key
+      // Priority 2: Fallback to unified admin center store (zervos_salespersons)
+      const adminData = localStorage.getItem('zervos_salespersons');
+      if (adminData) {
+        const parsed = JSON.parse(adminData);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((m: any) => {
+            if ((m.status === 'Active' || m.status === 'active' || !m.status) && !seenIds.has(m.id)) {
+              members.push({
+                id: m.id,
+                name: m.name,
+                email: m.email,
+                phone: m.phone || '',
+                role: m.role || 'Staff',
+                appointmentsCount: m.totalBookings || 0,
+                availability: m.availability || 'Full Time',
+                profilePicture: m.profilePicture,
+              });
+              seenIds.add(m.id);
+            }
+          });
+        }
+      }
+      
+      // Priority 3: Try default key
       const defaultData = localStorage.getItem('zervos_team_members');
       if (defaultData) {
         const parsed = JSON.parse(defaultData);
         if (Array.isArray(parsed)) {
           parsed.forEach((m: any) => {
-            if ((m.status === 'active' || !m.status) && !members.find(existing => existing.id === m.id)) {
+            if (!seenIds.has(m.id)) {
               members.push(m);
+              seenIds.add(m.id);
             }
           });
         }
       }
 
-      // Search all localStorage for team_members keys
+      // Priority 4: Search all localStorage for other team_members keys
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.includes('zervos_team_members')) {
+        if (key && key.includes('zervos_team_members') && key !== workspaceKey && key !== 'zervos_team_members') {
           try {
             const data = localStorage.getItem(key);
             if (data) {
               const parsed = JSON.parse(data);
               if (Array.isArray(parsed)) {
                 parsed.forEach((m: any) => {
-                  if ((m.status === 'active' || !m.status) && !members.find(existing => existing.id === m.id)) {
+                  if (!seenIds.has(m.id)) {
                     members.push(m);
+                    seenIds.add(m.id);
                   }
                 });
               }
