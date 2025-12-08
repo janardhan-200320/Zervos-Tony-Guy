@@ -1,39 +1,38 @@
-import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import {
-  MessageCircle,
-  ArrowLeft,
-  Check,
-  X,
-  AlertCircle,
-  Send,
-  Shield,
-  Key,
-  Phone,
-  Server,
-  Zap,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  FileText,
-  QrCode,
-  Settings,
-  Bell,
-  Lock
+    AlertCircle,
+    ArrowLeft,
+    Bell,
+    Check,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    FileText,
+    Key,
+    Loader2,
+    Lock,
+    MessageCircle,
+    Phone,
+    QrCode,
+    RefreshCw,
+    Send,
+    Server,
+    Settings,
+    Shield,
+    XCircle,
+    Zap
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 
 interface WhatsAppConfig {
@@ -79,7 +78,7 @@ export default function WhatsAppSettings() {
     apiUrl: 'http://localhost:3000',
     sessionName: 'default',
     phoneNumber: '+919035101333',
-    apiKey: '',
+    apiKey: 'ac451f3117ed43c19ac0f38b3bd52d66',
     autoSendBills: false,
     billTemplate: DEFAULT_TEMPLATE,
     testMode: true,

@@ -1,37 +1,36 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { useLocation } from 'wouter';
 import DashboardLayout from '@/components/DashboardLayout';
+import { POSInvoice } from '@/components/POSInvoice';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, Calendar, TrendingUp, DollarSign, BarChart3, CalendarDays, ChevronDown, Clock, User, Play, Square, PieChart, Users } from 'lucide-react';
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Download, Printer, Eye, FileSpreadsheet, FileText, Receipt, FileCheck } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import { 
-  exportToCSV, 
-  exportToExcel, 
-  exportToPDF, 
-  printTransactions,
-  printSingleTransaction,
-  type Transaction as POSTransaction
+import {
+    exportToCSV,
+    exportToExcel,
+    exportToPDF,
+    printSingleTransaction,
+    printTransactions,
+    type Transaction as POSTransaction
 } from '@/lib/pos-export-utils';
-import { POSInvoice } from '@/components/POSInvoice';
+import { jsPDF } from 'jspdf';
+import { BarChart3, Calendar, CalendarDays, ChevronDown, Clock, CreditCard, DollarSign, Download, Eye, FileCheck, FileSpreadsheet, FileText, Filter, Minus, PieChart, Play, Plus, Printer, Receipt, Search, ShoppingCart, Square, Trash2, TrendingUp, User, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import { useLocation } from 'wouter';
 
 // Shift interface
 interface Shift {
@@ -113,8 +112,11 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
   const [teamMember, setTeamMember] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>('Walk-in Customer');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const printableRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
 
@@ -833,7 +835,10 @@ export default function POSPage() {
     const amount = subtotal;
     const newTx: Transaction = {
       id,
-      customer: { name: 'Walk-in Customer' },
+      customer: { 
+        name: customerName || 'Walk-in Customer',
+        phone: customerPhone || undefined
+      },
       items: cartItems.map((it) => ({ productId: it.product.id, qty: it.qty, price: it.product.price })),
       date: new Date().toISOString().slice(0, 10),
       amount,
@@ -854,10 +859,80 @@ export default function POSPage() {
     // Reset form
     setCart({});
     setTeamMember('');
+    setCustomerName('Walk-in Customer');
+    setCustomerPhone('');
     setShowRegister(false);
     toast({ title: 'Sale recorded', description: `${format(amount)} recorded${selectedBooking ? ' (linked to ' + selectedBooking + ')' : ''}` });
     // open receipt preview so user can print/export
     setReceiptOpen(true);
+  };
+
+  // Send bill via WhatsApp
+  const handleSendWhatsApp = async (tx: Transaction) => {
+    if (!tx.customer?.phone) {
+      toast({ 
+        title: 'Phone Number Required', 
+        description: 'Customer phone number is needed to send WhatsApp bill',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSendingWhatsApp(true);
+
+    try {
+      // Get company data
+      const companyData = localStorage.getItem('zervos_company');
+      const company = companyData ? JSON.parse(companyData) : { name: 'Your Business' };
+
+      // Prepare bill data
+      const billData: BillData = {
+        invoiceNumber: tx.id,
+        customerName: tx.customer.name || 'Customer',
+        customerPhone: tx.customer.phone,
+        date: new Date(tx.date).toLocaleDateString('en-IN'),
+        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        items: tx.items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            name: product?.name || 'Item',
+            quantity: item.qty,
+            price: item.price
+          };
+        }),
+        subtotal: tx.orderValue / 100,
+        discount: discountPercent > 0 ? (tx.orderValue * discountPercent / 100) / 100 : undefined,
+        tax: taxPercent > 0 ? (tx.orderValue * taxPercent / 100) / 100 : undefined,
+        total: tx.amount / 100,
+        paymentMethod: paymentMethod,
+        businessName: company.name,
+        businessPhone: company.phone,
+        businessAddress: company.address
+      };
+
+      const result = await whatsappService.sendBill(billData);
+
+      if (result.success) {
+        toast({ 
+          title: '✅ Bill Sent!', 
+          description: `WhatsApp bill sent to ${tx.customer.phone}` 
+        });
+      } else {
+        toast({ 
+          title: '❌ Failed to Send', 
+          description: result.message,
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: '❌ Error', 
+        description: error.message || 'Failed to send WhatsApp bill',
+        variant: 'destructive'
+      });
+    } finally {
+      setSendingWhatsApp(false);
+    }
   };
 
   // Export handlers
@@ -1485,6 +1560,32 @@ export default function POSPage() {
                             {SAMPLE_APPOINTMENTS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                           </select>
                         </div>
+                        <hr className="my-2" />
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-600">Customer Details (Optional - for WhatsApp Bill)</p>
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm">Name</label>
+                            <input 
+                              type="text" 
+                              value={customerName} 
+                              onChange={(e) => setCustomerName(e.target.value)} 
+                              placeholder="Customer name"
+                              className="flex-1 rounded-md border px-2 py-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm w-12">Phone</label>
+                            <input 
+                              type="tel" 
+                              value={customerPhone} 
+                              onChange={(e) => setCustomerPhone(e.target.value)} 
+                              placeholder="10-digit mobile number"
+                              maxLength={10}
+                              className="flex-1 rounded-md border px-2 py-1"
+                            />
+                            <MessageCircle size={16} className="text-green-600" />
+                          </div>
+                        </div>
                         <Button onClick={handleCompleteSale} className="flex w-full items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white"> <CreditCard size={16} /> Complete Sale</Button>
                       </div>
                     </div>
@@ -1587,6 +1688,21 @@ export default function POSPage() {
                   >
                     <FileText size={16} /> Save as PDF
                   </Button>
+                  {selectedTx.customer?.phone && (
+                    <Button 
+                      onClick={() => handleSendWhatsApp(selectedTx)} 
+                      disabled={sendingWhatsApp}
+                      className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      {sendingWhatsApp ? (
+                        <>Loading...</>
+                      ) : (
+                        <>
+                          <Send size={16} /> Send WhatsApp
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

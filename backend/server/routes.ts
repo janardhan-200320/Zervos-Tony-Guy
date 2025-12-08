@@ -1,11 +1,11 @@
+import { insertOnboardingSchema, insertResourceBookingSchema, insertResourceSchema, updateUserProfileSchema } from "@shared/schema";
 import type { Express } from "express";
+import fs from "fs";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { insertOnboardingSchema, insertResourceSchema, insertResourceBookingSchema, updateUserProfileSchema } from "@shared/schema";
-import { fromZodError } from "zod-validation-error";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
+import { fromZodError } from "zod-validation-error";
+import { storage } from "./storage";
 
 // Configure multer for file uploads
 const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
@@ -193,21 +193,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/onboarding - Create new onboarding
   app.post("/api/onboarding", async (req, res) => {
     try {
+      console.log("📝 Received onboarding data:", JSON.stringify(req.body, null, 2));
+      
       const result = insertOnboardingSchema.safeParse(req.body);
       
       if (!result.success) {
         const validationError = fromZodError(result.error);
+        console.error("❌ Validation failed:", validationError.message);
+        console.error("Validation errors:", result.error.errors);
         return res.status(400).json({ 
           error: "Validation failed", 
-          details: validationError.message 
+          details: validationError.message,
+          errors: result.error.errors
         });
       }
 
+      console.log("✅ Validation passed, creating onboarding...");
       const onboarding = await storage.createOnboarding(result.data);
+      console.log("✅ Onboarding created:", onboarding.id);
       return res.status(201).json(onboarding);
-    } catch (error) {
-      console.error("Error creating onboarding:", error);
-      return res.status(500).json({ error: "Internal server error" });
+    } catch (error: any) {
+      console.error("❌ Error creating onboarding:", error);
+      console.error("Stack trace:", error.stack);
+      return res.status(500).json({ 
+        error: "Internal server error",
+        message: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 

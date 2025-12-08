@@ -6,6 +6,8 @@ export interface WhatsAppConfig {
   phoneNumber: string;
   apiKey?: string;
   billTemplate: string;
+  autoSendBills?: boolean;
+  testMode?: boolean;
 }
 
 export interface BillData {
@@ -29,6 +31,20 @@ export interface BillData {
   businessAddress?: string;
 }
 
+export interface SendResult {
+  success: boolean;
+  message: string;
+  messageId?: string;
+  error?: string;
+}
+
+export interface ConnectionResult {
+  connected: boolean;
+  status?: string;
+  message: string;
+  qrCode?: string;
+}
+
 class WhatsAppService {
   private getConfig(workspaceId: string = 'default'): WhatsAppConfig | null {
     try {
@@ -40,56 +56,78 @@ class WhatsAppService {
     }
   }
 
-  private formatPhoneNumber(phone: string): string {
+  private formatPhoneNumber(phone: string, countryCode: string = '91'): string {
     // Remove all non-numeric characters
     const cleaned = phone.replace(/[^0-9]/g, '');
     
-    // Add country code if not present
+    // Handle different phone number formats
     let formatted = cleaned;
-    if (!formatted.startsWith('91') && formatted.length === 10) {
-      formatted = '91' + formatted;
+    
+    // Remove country code if already present
+    if (formatted.startsWith(countryCode)) {
+      formatted = formatted.substring(countryCode.length);
     }
     
-    // Add WhatsApp suffix
-    return formatted + '@c.us';
+    // Remove leading zero if present
+    if (formatted.startsWith('0')) {
+      formatted = formatted.substring(1);
+    }
+    
+    // Validate phone number length (should be 10 digits for Indian numbers)
+    if (formatted.length !== 10) {
+      throw new Error('Invalid phone number format');
+    }
+    
+    // Add country code and WhatsApp suffix
+    return `${countryCode}${formatted}@c.us`;
   }
 
   private formatBillMessage(template: string, data: BillData): string {
     let message = template;
     
-    // Replace simple variables
-    message = message.replace(/\{\{businessName\}\}/g, data.businessName);
-    message = message.replace(/\{\{invoiceNumber\}\}/g, data.invoiceNumber);
-    message = message.replace(/\{\{date\}\}/g, data.date);
-    message = message.replace(/\{\{time\}\}/g, data.time);
-    message = message.replace(/\{\{subtotal\}\}/g, data.subtotal.toFixed(2));
-    message = message.replace(/\{\{total\}\}/g, data.total.toFixed(2));
-    message = message.replace(/\{\{paymentMethod\}\}/g, data.paymentMethod);
-    message = message.replace(/\{\{phone\}\}/g, data.businessPhone || '');
-    message = message.replace(/\{\{address\}\}/g, data.businessAddress || '');
+    // Replace simple variables with proper formatting
+    const replacements = {
+      '{{businessName}}': data.businessName,
+      '{{invoiceNumber}}': data.invoiceNumber,
+      '{{customerName}}': data.customerName,
+      '{{date}}': data.date,
+      '{{time}}': data.time,
+      '{{subtotal}}': `₹${data.subtotal.toFixed(2)}`,
+      '{{total}}': `₹${data.total.toFixed(2)}`,
+      '{{paymentMethod}}': data.paymentMethod,
+      '{{phone}}': data.businessPhone || '',
+      '{{address}}': data.businessAddress || ''
+    };
+
+    // Apply all replacements
+    Object.entries(replacements).forEach(([key, value]) => {
+      message = message.replace(new RegExp(key, 'g'), value);
+    });
     
-    // Handle optional fields with conditional blocks
+    // Handle optional discount field with conditional blocks
     if (data.discount && data.discount > 0) {
       message = message.replace(/\{\{#discount\}\}/g, '');
       message = message.replace(/\{\{\/discount\}\}/g, '');
-      message = message.replace(/\{\{discount\}\}/g, data.discount.toFixed(2));
+      message = message.replace(/\{\{discount\}\}/g, `₹${data.discount.toFixed(2)}`);
     } else {
       message = message.replace(/\{\{#discount\}\}[\s\S]*?\{\{\/discount\}\}/g, '');
     }
     
+    // Handle optional tax field with conditional blocks
     if (data.tax && data.tax > 0) {
       message = message.replace(/\{\{#tax\}\}/g, '');
       message = message.replace(/\{\{\/tax\}\}/g, '');
-      message = message.replace(/\{\{tax\}\}/g, data.tax.toFixed(2));
+      message = message.replace(/\{\{tax\}\}/g, `₹${data.tax.toFixed(2)}`);
     } else {
       message = message.replace(/\{\{#tax\}\}[\s\S]*?\{\{\/tax\}\}/g, '');
     }
     
-    // Format items list
+    // Format items list with proper currency
     const itemsList = data.items
-      .map((item, idx) => 
-        `${idx + 1}. ${item.name} x${item.quantity} - ₹${(item.price * item.quantity / 100).toFixed(2)}`
-      )
+      .map((item, idx) => {
+        const itemTotal = (item.price * item.quantity / 100).toFixed(2);
+        return `${idx + 1}. ${item.name} × ${item.quantity} - ₹${itemTotal}`;
+      })
       .join('\n');
     message = message.replace(/\{\{items\}\}/g, itemsList);
     
@@ -99,7 +137,7 @@ class WhatsAppService {
   async sendBill(
     billData: BillData,
     workspaceId: string = 'default'
-  ): Promise<{ success: boolean; message: string; messageId?: string }> {
+  ): Promise<SendResult> {
     try {
       // Get configuration
       const config = this.getConfig(workspaceId);
@@ -107,7 +145,8 @@ class WhatsAppService {
       if (!config || !config.enabled) {
         return {
           success: false,
-          message: 'WhatsApp integration is not enabled'
+          message: 'WhatsApp integration is not enabled',
+          error: 'INTEGRATION_DISABLED'
         };
       }
 
@@ -115,12 +154,31 @@ class WhatsAppService {
       if (!billData.customerPhone) {
         return {
           success: false,
-          message: 'Customer phone number is required'
+          message: 'Customer phone number is required',
+          error: 'PHONE_REQUIRED'
         };
       }
 
-      // Format phone number
-      const chatId = this.formatPhoneNumber(billData.customerPhone);
+      // Check if bill already sent
+      if (this.isBillSent(billData.invoiceNumber, workspaceId)) {
+        return {
+          success: false,
+          message: 'Bill already sent to this customer',
+          error: 'DUPLICATE_BILL'
+        };
+      }
+
+      // Format phone number with validation
+      let chatId: string;
+      try {
+        chatId = this.formatPhoneNumber(billData.customerPhone);
+      } catch (error: any) {
+        return {
+          success: false,
+          message: error.message || 'Invalid phone number format',
+          error: 'INVALID_PHONE'
+        };
+      }
 
       // Format message using template
       const message = this.formatBillMessage(config.billTemplate, billData);
@@ -140,8 +198,18 @@ class WhatsAppService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to send WhatsApp message');
+        const errorText = await response.text();
+        let errorMessage = 'Failed to send WhatsApp message';
+        
+        // Parse error for better user feedback
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -159,7 +227,8 @@ class WhatsAppService {
       console.error('WhatsApp send error:', error);
       return {
         success: false,
-        message: error.message || 'Failed to send WhatsApp message'
+        message: error.message || 'Failed to send WhatsApp message',
+        error: error.code || 'SEND_FAILED'
       };
     }
   }
@@ -175,6 +244,15 @@ class WhatsAppService {
         return {
           success: false,
           message: 'WhatsApp configuration not found'
+        };
+      }
+
+      // Validate phone number first
+      const validation = this.validatePhoneNumber(phoneNumber);
+      if (!validation.valid) {
+        return {
+          success: false,
+          message: validation.message || 'Invalid phone number'
         };
       }
 
@@ -197,7 +275,17 @@ class WhatsAppService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send test message');
+        const errorText = await response.text();
+        let errorMessage = 'Failed to send test message';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return {
@@ -206,16 +294,24 @@ class WhatsAppService {
       };
 
     } catch (error: any) {
+      console.error('Test message error:', error);
+      
+      let errorMessage = error.message || 'Failed to send test message';
+      
+      if (error.message?.includes('ECONNREFUSED') || error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to WhatsApp server. Check if Waha is running.';
+      }
+      
       return {
         success: false,
-        message: error.message || 'Failed to send test message'
+        message: errorMessage
       };
     }
   }
 
   async checkConnection(
     workspaceId: string = 'default'
-  ): Promise<{ connected: boolean; status?: string; message: string }> {
+  ): Promise<ConnectionResult> {
     try {
       const config = this.getConfig(workspaceId);
       
@@ -241,10 +337,32 @@ class WhatsAppService {
       const data = await response.json();
       const isActive = data.status === 'WORKING' || data.status === 'ACTIVE';
 
+      // Fetch QR code if session needs to be scanned
+      let qrCode: string | undefined;
+      if (data.status === 'SCAN_QR_CODE') {
+        try {
+          const qrResponse = await fetch(
+            `${config.apiUrl}/api/screenshot?session=${config.sessionName}`,
+            {
+              headers: {
+                ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+              }
+            }
+          );
+          if (qrResponse.ok) {
+            const blob = await qrResponse.blob();
+            qrCode = URL.createObjectURL(blob);
+          }
+        } catch (err) {
+          console.error('Could not fetch QR code:', err);
+        }
+      }
+
       return {
         connected: isActive,
         status: data.status,
-        message: isActive ? 'Connected successfully' : 'Session not active'
+        message: isActive ? 'Connected successfully' : 'Session not active',
+        qrCode
       };
 
     } catch (error: any) {
@@ -293,6 +411,148 @@ class WhatsAppService {
   isBillSent(invoiceNumber: string, workspaceId: string = 'default'): boolean {
     const history = this.getSentBillsHistory(workspaceId);
     return history.some(record => record.invoiceNumber === invoiceNumber);
+  }
+
+  // Clear sent bills history
+  clearHistory(workspaceId: string = 'default'): void {
+    try {
+      const key = `whatsapp_sent_bills_${workspaceId}`;
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error('Failed to clear history:', error);
+    }
+  }
+
+  // Get statistics
+  getStatistics(workspaceId: string = 'default'): {
+    totalSent: number;
+    sentToday: number;
+    sentThisWeek: number;
+    sentThisMonth: number;
+  } {
+    const history = this.getSentBillsHistory(workspaceId);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return {
+      totalSent: history.length,
+      sentToday: history.filter(r => new Date(r.sentAt) >= today).length,
+      sentThisWeek: history.filter(r => new Date(r.sentAt) >= weekStart).length,
+      sentThisMonth: history.filter(r => new Date(r.sentAt) >= monthStart).length
+    };
+  }
+
+  // Validate phone number format
+  validatePhoneNumber(phone: string): { valid: boolean; message?: string } {
+    try {
+      // Remove all non-numeric characters
+      const cleaned = phone.replace(/[^0-9]/g, '');
+      
+      // Check if empty
+      if (!cleaned) {
+        return { valid: false, message: 'Phone number is required' };
+      }
+      
+      // Remove country code if present
+      let digits = cleaned;
+      if (digits.startsWith('91')) {
+        digits = digits.substring(2);
+      }
+      
+      // Remove leading zero
+      if (digits.startsWith('0')) {
+        digits = digits.substring(1);
+      }
+      
+      // Check length (should be 10 digits for Indian numbers)
+      if (digits.length !== 10) {
+        return { valid: false, message: 'Phone number must be 10 digits' };
+      }
+      
+      // Check if it starts with valid digit (6-9 for Indian mobile numbers)
+      if (!['6', '7', '8', '9'].includes(digits[0])) {
+        return { valid: false, message: 'Invalid mobile number format' };
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      return { valid: false, message: 'Invalid phone number format' };
+    }
+  }
+
+  // Bulk send bills (for multiple customers)
+  async sendBulkBills(
+    bills: BillData[],
+    workspaceId: string = 'default',
+    onProgress?: (current: number, total: number, result: SendResult) => void
+  ): Promise<{
+    successful: number;
+    failed: number;
+    results: Array<{ bill: BillData; result: SendResult }>;
+  }> {
+    const results: Array<{ bill: BillData; result: SendResult }> = [];
+    let successful = 0;
+    let failed = 0;
+
+    for (let i = 0; i < bills.length; i++) {
+      const bill = bills[i];
+      
+      // Add delay between messages to avoid rate limiting
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      const result = await this.sendBill(bill, workspaceId);
+      results.push({ bill, result });
+
+      if (result.success) {
+        successful++;
+      } else {
+        failed++;
+      }
+
+      if (onProgress) {
+        onProgress(i + 1, bills.length, result);
+      }
+    }
+
+    return { successful, failed, results };
+  }
+
+  // Export history as CSV
+  exportHistoryAsCSV(workspaceId: string = 'default'): string {
+    const history = this.getSentBillsHistory(workspaceId);
+    
+    const headers = ['Invoice Number', 'Customer Phone', 'Sent At'];
+    const rows = history.map(record => [
+      record.invoiceNumber,
+      record.customerPhone,
+      new Date(record.sentAt).toLocaleString()
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    return csv;
+  }
+
+  // Download history as CSV file
+  downloadHistory(workspaceId: string = 'default'): void {
+    const csv = this.exportHistoryAsCSV(workspaceId);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `whatsapp-bills-history-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }
 

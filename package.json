@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "docker": "^1.0.0"
   }
 }

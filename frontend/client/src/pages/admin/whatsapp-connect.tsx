@@ -1,32 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  MessageCircle,
-  ArrowLeft,
-  QrCode,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  Smartphone,
-  Wifi,
-  WifiOff,
-  Phone,
-  Clock,
-  Shield,
-  AlertCircle,
-  Zap,
-  Check,
-  Settings
-} from 'lucide-react';
-import { useLocation } from 'wouter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +9,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useToast } from '@/hooks/use-toast';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  MessageCircle,
+  Phone,
+  QrCode,
+  RefreshCw,
+  Shield,
+  Smartphone,
+  Trash2,
+  Wifi,
+  WifiOff,
+  XCircle,
+  Zap
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
 
 interface ConnectionStatus {
   status: 'WORKING' | 'SCAN_QR_CODE' | 'STARTING' | 'STOPPED' | 'FAILED';
@@ -75,7 +74,7 @@ export default function WhatsAppConnect() {
         enabled: true,
         apiUrl: 'http://localhost:3000',
         sessionName: 'default',
-        apiKey: '4da0af17dffc40119c39a3ba30e0771e',
+        apiKey: 'ac451f3117ed43c19ac0f38b3bd52d66',
         phoneNumber: '',
         autoSendBills: false,
         billTemplate: '',
@@ -115,28 +114,81 @@ export default function WhatsAppConnect() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📱 Session status:', data.status);
+        console.log('📱 QR in response:', data.qr ? 'Yes' : 'No');
+        
         let qrCode = data.qr;
         
-        // If status is SCAN_QR_CODE but no QR in response, fetch from screenshot endpoint
-        if (data.status === 'SCAN_QR_CODE' && !qrCode) {
-          try {
-            const screenshotResponse = await fetch(
-              `${config.apiUrl}/api/screenshot?session=${config.sessionName}`,
-              {
-                headers: {
-                  ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+        // If status is SCAN_QR_CODE, try to get QR code from multiple sources
+        if (data.status === 'SCAN_QR_CODE') {
+          // First, try the auth QR endpoint (returns PNG image)
+          if (!qrCode) {
+            try {
+              const qrResponse = await fetch(
+                `${config.apiUrl}/api/${config.sessionName}/auth/qr`,
+                {
+                  headers: {
+                    ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+                  }
                 }
+              );
+              
+              if (qrResponse.ok) {
+                // The endpoint returns a PNG image, not JSON
+                const blob = await qrResponse.blob();
+                qrCode = URL.createObjectURL(blob);
+                console.log('📱 Got QR image from auth endpoint');
               }
-            );
-            
-            if (screenshotResponse.ok) {
-              const blob = await screenshotResponse.blob();
-              qrCode = URL.createObjectURL(blob);
+            } catch (err) {
+              console.error('Could not fetch QR from auth endpoint:', err);
             }
-          } catch (err) {
-            console.error('Could not fetch screenshot:', err);
+          }
+          
+          // If still no QR, try screenshot endpoint
+          if (!qrCode) {
+            try {
+              const screenshotResponse = await fetch(
+                `${config.apiUrl}/api/screenshot?session=${config.sessionName}`,
+                {
+                  headers: {
+                    ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+                  }
+                }
+              );
+              
+              if (screenshotResponse.ok) {
+                const blob = await screenshotResponse.blob();
+                qrCode = URL.createObjectURL(blob);
+                console.log('📱 Got QR from screenshot endpoint');
+              }
+            } catch (err) {
+              console.error('Could not fetch screenshot:', err);
+            }
+          }
+          
+          // If we have a QR code text string, convert it to QR image using a library
+          if (qrCode && typeof qrCode === 'string' && !qrCode.startsWith('blob:') && !qrCode.startsWith('data:image')) {
+            console.log('📱 Converting QR text to image, length:', qrCode.length);
+            // QR is a text string, generate QR code image using qrcode library
+            try {
+              const QRCode = (await import('qrcode')).default;
+              const qrDataUrl = await QRCode.toDataURL(qrCode, {
+                width: 400,
+                margin: 2,
+                color: {
+                  dark: '#000000',
+                  light: '#FFFFFF'
+                }
+              });
+              qrCode = qrDataUrl;
+              console.log('✅ QR code image generated');
+            } catch (err) {
+              console.error('❌ Failed to generate QR image:', err);
+            }
           }
         }
+        
+        console.log('📱 Final QR code type:', qrCode ? (qrCode.startsWith('data:') ? 'data-url' : qrCode.startsWith('blob:') ? 'blob' : 'string') : 'none');
         
         setConnectionStatus({
           status: data.status || 'STOPPED',
@@ -159,7 +211,46 @@ export default function WhatsAppConnect() {
   const startSession = useCallback(async () => {
     const config = getConfig();
     setIsLoading(true);
+    
     try {
+      // First, try to get existing session status
+      const statusResponse = await fetch(`${config.apiUrl}/api/sessions/${config.sessionName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+        }
+      });
+
+      // If session already exists, restart it
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        
+        // If already working, just refresh
+        if (statusData.status === 'WORKING') {
+          toast({
+            title: 'Session Active',
+            description: 'WhatsApp session is already running',
+          });
+          await fetchStatus();
+          setIsLoading(false);
+          return;
+        }
+
+        // Stop existing session first
+        await fetch(`${config.apiUrl}/api/sessions/${config.sessionName}/stop`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+          }
+        });
+
+        // Wait before restarting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Start new session
       const response = await fetch(`${config.apiUrl}/api/sessions/start`, {
         method: 'POST',
         headers: {
@@ -169,24 +260,48 @@ export default function WhatsAppConnect() {
         body: JSON.stringify({
           name: config.sessionName,
           config: {
-            webhooks: []
+            webhooks: [],
+            proxy: null
           }
         })
       });
 
-      if (response.ok) {
-        toast({
-          title: 'Session Started',
-          description: 'Scan the QR code with your WhatsApp',
-        });
-        await fetchStatus();
-      } else {
-        throw new Error('Failed to start session');
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to start session';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
-    } catch (error) {
+
       toast({
-        title: 'Failed to Start',
-        description: 'Could not start WhatsApp session',
+        title: '✅ Session Started',
+        description: 'Scan the QR code with your WhatsApp mobile app',
+      });
+      
+      // Wait a bit for QR to generate, then fetch status
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await fetchStatus();
+      
+    } catch (error: any) {
+      console.error('Start session error:', error);
+      
+      let errorMessage = 'Could not start WhatsApp session';
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to Waha server. Make sure it is running at ' + config.apiUrl;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: '❌ Failed to Start',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -234,32 +349,56 @@ export default function WhatsAppConnect() {
   const restartSession = async () => {
     setIsRestarting(true);
     const config = getConfig();
-    if (!config) return;
+    if (!config) {
+      setIsRestarting(false);
+      return;
+    }
 
     try {
-      // Stop current session
-      await fetch(`${config.apiUrl}/api/sessions/${config.sessionName}/stop`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiKey && { 'X-Api-Key': config.apiKey })
-        }
-      });
+      // First, try to stop the session
+      try {
+        await fetch(`${config.apiUrl}/api/sessions/${config.sessionName}/stop`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+          }
+        });
+      } catch (e) {
+        console.log('Stop session failed (might not exist):', e);
+      }
 
-      // Wait a bit
+      // Wait a moment
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Delete the session completely
+      try {
+        await fetch(`${config.apiUrl}/api/sessions/${config.sessionName}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+          }
+        });
+      } catch (e) {
+        console.log('Delete session failed (might not exist):', e);
+      }
+
+      // Wait before creating new session
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Start new session
+      // Start fresh session
       await startSession();
 
       toast({
-        title: 'Session Restarted',
-        description: 'Please scan the new QR code',
+        title: '✅ Session Restarted',
+        description: 'Please scan the new QR code with WhatsApp',
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Restart error:', error);
       toast({
-        title: 'Restart Failed',
-        description: 'Could not restart WhatsApp session',
+        title: '❌ Restart Failed',
+        description: error.message || 'Could not restart WhatsApp session',
         variant: 'destructive',
       });
     } finally {
