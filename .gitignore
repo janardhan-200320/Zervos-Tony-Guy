@@ -44,9 +44,6 @@ logs/
 vite.config.ts.*
 *.tar.gz
 
-# WhatsApp session data
-backend/.waha/
-
 # Replit specific
 .replit
 replit.nix
