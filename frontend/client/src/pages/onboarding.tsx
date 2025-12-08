@@ -1,7 +1,6 @@
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import ProgressStepper from '@/components/ProgressStepper';
 import Step1BusinessDetails from '@/components/Step1BusinessDetails';
-import Step2IndustryNeeds from '@/components/Step2IndustryNeeds';
 import Step3Availability from '@/components/Step3Availability';
 import Step4CustomLabels from '@/components/Step4CustomLabels';
 import SidebarPreview from '@/components/SidebarPreview';
@@ -37,11 +36,11 @@ function OnboardingContent() {
       case 1:
         return <Step1BusinessDetails />;
       case 2:
-        return <Step2IndustryNeeds />;
-      case 3:
         return <Step3Availability />;
-      case 4:
+      case 3:
         return <Step4CustomLabels />;
+      case 4:
+        return <Step1BusinessDetails />;
       default:
         return <Step1BusinessDetails />;
     }

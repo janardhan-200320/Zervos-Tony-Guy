@@ -51,26 +51,57 @@ export default function Step3Availability() {
     [data.availableDays]
   );
   const [selectedDates, setSelectedDates] = useState<Date[]>(initialDates);
+  // Quick weekday toggles (0 = Sunday, 6 = Saturday)
+  const initialWeekdays = useMemo(() => {
+    const set = new Set<number>();
+    initialDates.forEach((d) => set.add(d.getDay()));
+    return Array.from(set);
+  }, [initialDates]);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>(initialWeekdays);
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
 
-  const isFormValid = timezone && startTime && endTime && selectedDates.length > 0;
+  const isFormValid = Boolean(timezone && startTime && endTime && (selectedDates.length > 0 || selectedWeekdays.length > 0));
+
+  const toggleWeekday = (dayIndex: number) => {
+    setSelectedWeekdays((prev) => {
+      if (prev.includes(dayIndex)) return prev.filter((d) => d !== dayIndex);
+      return [...prev, dayIndex].sort((a, b) => a - b);
+    });
+  };
+
+  // When weekday toggles are used but no explicit dates are selected,
+  // we'll map weekdays to the next two weeks' dates when saving.
+  const mapWeekdaysToDates = (weekdays: number[]) => {
+    const daysToGenerate = 14; // two weeks
+    const out: Date[] = [];
+    const today = new Date();
+    for (let i = 0; i < daysToGenerate; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      if (weekdays.includes(d.getDay())) out.push(d);
+    }
+    return out;
+  };
 
   const handleNext = () => {
+    const daysToStore = selectedDates.length > 0 ? selectedDates : mapWeekdaysToDates(selectedWeekdays);
     updateData({
       timezone,
       availableTimeStart: startTime,
       availableTimeEnd: endTime,
       // store as YYYY-MM-DD strings
-      availableDays: selectedDates.map((d) => d.toISOString().slice(0, 10)),
+      availableDays: daysToStore.map((d) => d.toISOString().slice(0, 10)),
     });
     nextStep();
   };
 
   const handleBack = () => {
+    const daysToStore = selectedDates.length > 0 ? selectedDates : mapWeekdaysToDates(selectedWeekdays);
     updateData({
       timezone,
       availableTimeStart: startTime,
       availableTimeEnd: endTime,
-      availableDays: selectedDates.map((d) => d.toISOString().slice(0, 10)),
+      availableDays: daysToStore.map((d) => d.toISOString().slice(0, 10)),
     });
     prevStep();
   };
@@ -134,12 +165,75 @@ export default function Step3Availability() {
 
         <div className="space-y-2">
           <Label className="text-sm font-medium">Pick available dates</Label>
-          <Calendar
-            mode="multiple"
-            selected={selectedDates}
-            onSelect={(dates) => setSelectedDates(dates ?? [])}
-            className="rounded-md border"
-          />
+
+          <div className="rounded-md border p-4 flex gap-6 items-start">
+            <div className="w-90">
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {daysOfWeek.map((d, idx) => (
+                  <button
+                    key={d.full}
+                    type="button"
+                    onClick={() => toggleWeekday(idx)}
+                    title={d.full}
+                    className={`px-4 py-2 border rounded text-sm bg-white hover:bg-gray-50 focus:outline-none text-center min-w-[72px] ${
+                      selectedWeekdays.includes(idx)
+                        ? 'bg-primary text-black border-primary border-2 font-bold'
+                        : 'text-foreground'
+                    }`}
+                  >
+                    {d.short}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 flex justify-end">
+              <div className="w-full max-w-[520px]">
+                <div className="flex items-start gap-4">
+                  <div className="flex-1" />
+                      <div className="relative">
+                        <div className="flex justify-end mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowCalendar((s) => !s)}
+                            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
+                          >
+                            Calender
+                          </button>
+                        </div>
+
+                        {showCalendar && (
+                          <div className="absolute right-0 z-20">
+                            <div className="rounded-md shadow-lg bg-white p-3">
+                              <Calendar
+                                mode="multiple"
+                                selected={selectedDates}
+                                onSelect={(dates) => setSelectedDates(dates ?? [])}
+                                className="rounded-md w-80"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex justify-end">
+                          <div className="border rounded-md p-3 w-44">
+                            <div className="flex items-center gap-2">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                                <path d="M16 3V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path d="M8 3V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                              </svg>
+                              <div className="text-sm">
+                                <div className="font-medium">{selectedDates.length > 0 ? `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected` : selectedWeekdays.length > 0 ? `${selectedWeekdays.length} day${selectedWeekdays.length > 1 ? 's' : ''} selected` : 'No dates selected'}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

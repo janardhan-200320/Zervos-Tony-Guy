@@ -1171,11 +1171,11 @@ const DashboardOverview = () => {
                   whileTap={{ scale: 0.95 }}
                   className="rounded-xl border-2 border-white/30 bg-white/10 px-6 py-3 font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
                   onClick={() => {
-                    navigator.clipboard.writeText(window.location.origin + '/book/default');
-                    alert('Booking link copied to clipboard!');
+                    // Open the branch-specific public booking page in a new tab
+                    window.open(window.location.origin + `/book/${branchId}`, '_blank');
                   }}
                 >
-                  Copy Link
+                  Public Link
                 </motion.button>
               </div>
             </div>

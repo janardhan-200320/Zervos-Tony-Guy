@@ -24,6 +24,7 @@
     "concurrently": "^9.2.1"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.87.0",
     "docker": "^1.0.0"
   }
 }
