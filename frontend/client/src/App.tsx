@@ -2,6 +2,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import TopProgressBar from "@/components/TopProgressBar";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import AccountPage from "@/pages/Account";
@@ -54,29 +55,18 @@ import { queryClient } from "./lib/queryClient";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const [, setLocation] = useLocation();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { session, loading } = useAuth();
 
   useEffect(() => {
-    const checkAuth = () => {
-      const auth = localStorage.getItem('zervos_is_authenticated');
-      const user = localStorage.getItem('zervos_current_user');
-      
-      console.log('🔐 Auth Check:', { auth, hasUser: !!user });
-      
-      if (auth === 'true' && user) {
-        setIsAuthenticated(true);
-      } else {
+    if (!loading) {
+      if (!session) {
         console.log('❌ Not authenticated, redirecting to /login');
         setLocation('/login');
       }
-      setIsChecking(false);
-    };
+    }
+  }, [session, loading, setLocation]);
 
-    checkAuth();
-  }, [setLocation]);
-
-  if (isChecking) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent"></div>
@@ -84,7 +74,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     );
   }
 
-  return isAuthenticated ? <Component {...rest} /> : null;
+  return session ? <Component {...rest} /> : null;
 }
 
 function Router() {
@@ -169,17 +159,19 @@ function Router() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WorkspaceProvider>
-        <NotificationProvider>
-          <TooltipProvider>
-            <ErrorBoundary>
-              <Toaster />
-              <TopProgressBar />
-              <Router />
-            </ErrorBoundary>
-          </TooltipProvider>
-        </NotificationProvider>
-      </WorkspaceProvider>
+      <AuthProvider>
+        <WorkspaceProvider>
+          <NotificationProvider>
+            <TooltipProvider>
+              <ErrorBoundary>
+                <Toaster />
+                <TopProgressBar />
+                <Router />
+              </ErrorBoundary>
+            </TooltipProvider>
+          </NotificationProvider>
+        </WorkspaceProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

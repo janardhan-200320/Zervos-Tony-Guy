@@ -21,6 +21,9 @@ import {
   LogIn,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/superbase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'wouter';
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -29,6 +32,14 @@ export default function LoginPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { session } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (session) {
+      setLocation('/dashboard');
+    }
+  }, [session, setLocation]);
 
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -66,34 +77,28 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // Check if user exists
-      const users = JSON.parse(localStorage.getItem('zervos_users') || '[]');
-      const user = users.find((u: any) => u.email === loginForm.email && u.password === loginForm.password);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email,
+        password: loginForm.password,
+      });
 
-      if (user) {
-        localStorage.setItem('zervos_current_user', JSON.stringify(user));
-        localStorage.setItem('zervos_is_authenticated', 'true');
-        
-        toast({
-          title: '✅ Login Successful!',
-          description: `Welcome back, ${user.name}!`,
-        });
+      if (error) throw error;
 
-        // Redirect to dashboard
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
-      } else {
-        toast({
-          title: '❌ Login Failed',
-          description: 'Invalid email or password',
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-      }
-    }, 1500);
+      toast({
+        title: '✅ Login Successful!',
+        description: 'Welcome back!',
+      });
+      // Redirect happens in useEffect
+    } catch (error: any) {
+      toast({
+        title: '❌ Login Failed',
+        description: error.message || 'Invalid email or password',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -127,44 +132,33 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const users = JSON.parse(localStorage.getItem('zervos_users') || '[]');
-      
-      // Check if user already exists
-      if (users.find((u: any) => u.email === signupForm.email)) {
-        toast({
-          title: '⚠️ Account Exists',
-          description: 'An account with this email already exists',
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const newUser = {
-        id: Date.now().toString(),
-        name: signupForm.name,
+    try {
+      const { data, error } = await supabase.auth.signUp({
         email: signupForm.email,
         password: signupForm.password,
-        createdAt: new Date().toISOString(),
-      };
+        options: {
+          data: {
+            name: signupForm.name,
+          },
+        },
+      });
 
-      users.push(newUser);
-      localStorage.setItem('zervos_users', JSON.stringify(users));
-      localStorage.setItem('zervos_current_user', JSON.stringify(newUser));
-      localStorage.setItem('zervos_is_authenticated', 'true');
+      if (error) throw error;
 
       toast({
         title: '✅ Account Created!',
-        description: 'Your account has been created successfully',
+        description: 'Please check your email to verify your account.',
       });
 
-      // Redirect to dashboard
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
-    }, 1500);
+    } catch (error: any) {
+      toast({
+        title: '❌ Signup Failed',
+        description: error.message || 'Failed to create account',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -180,16 +174,28 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
       toast({
         title: '✅ Email Sent!',
         description: 'Password reset link has been sent to your email',
       });
-      setIsLoading(false);
       setShowForgotPassword(false);
       setForgotPasswordEmail('');
-    }, 1500);
+    } catch (error: any) {
+      toast({
+        title: '❌ Failed to send email',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
