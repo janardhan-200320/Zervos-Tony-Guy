@@ -2,7 +2,7 @@ import { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, User, Mail, Phone, Calendar, Eye, MoreVertical } from 'lucide-react';
+import { Plus, Search, User, Mail, Phone, Calendar, Eye, MoreVertical, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,15 +19,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface Customer {
   id: string;
   name: string;
-  email: string;
   phone: string;
+  status: string;
+  source: string;
+  customerValue: number;
+  teamMembers: string[];
+  notes?: string;
   totalBookings: number;
   lastAppointment: string;
-  notes?: string;
   bookingHistory: {
     id: string;
     service: string;
@@ -41,11 +58,14 @@ export default function CustomersPage() {
     {
       id: '1',
       name: 'John Doe',
-      email: 'john@example.com',
       phone: '+1 234 567 8900',
+      status: 'Active',
+      source: 'Referral',
+      customerValue: 5000,
+      teamMembers: ['Sarah Johnson', 'Mike Davis'],
+      notes: 'Prefers morning appointments',
       totalBookings: 5,
       lastAppointment: 'Nov 2, 2025',
-      notes: 'Prefers morning appointments',
       bookingHistory: [
         { id: 'b1', service: 'Technical Interview', date: 'Nov 2, 2025', status: 'Completed' },
         { id: 'b2', service: 'HR Screening', date: 'Oct 28, 2025', status: 'Completed' },
@@ -54,8 +74,11 @@ export default function CustomersPage() {
     {
       id: '2',
       name: 'Jane Smith',
-      email: 'jane@example.com',
       phone: '+1 234 567 8901',
+      status: 'Active',
+      source: 'Direct',
+      customerValue: 3000,
+      teamMembers: ['Sarah Johnson'],
       totalBookings: 3,
       lastAppointment: 'Nov 3, 2025',
       bookingHistory: [
@@ -65,8 +88,11 @@ export default function CustomersPage() {
     {
       id: '3',
       name: 'Robert Brown',
-      email: 'robert@example.com',
       phone: '+1 234 567 8902',
+      status: 'Inactive',
+      source: 'Website',
+      customerValue: 2000,
+      teamMembers: ['Mike Davis'],
       totalBookings: 2,
       lastAppointment: 'Oct 28, 2025',
       bookingHistory: [
@@ -80,13 +106,19 @@ export default function CustomersPage() {
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
-    email: '',
     phone: '',
+    status: 'Active',
+    source: '',
+    customerValue: 0,
+    teamMembers: [] as string[],
+    notes: '',
   });
+  const [customStatusInput, setCustomStatusInput] = useState('');
+  const [customSourceInput, setCustomSourceInput] = useState('');
 
   const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (customer.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (customer.phone?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   const handleCreateCustomer = () => {
@@ -99,7 +131,7 @@ export default function CustomersPage() {
     };
     setCustomers([...customers, customer]);
     setIsNewCustomerOpen(false);
-    setNewCustomer({ name: '', email: '', phone: '' });
+    setNewCustomer({ name: '', phone: '', status: 'Active', source: '', customerValue: 0, teamMembers: [], notes: '' });
   };
 
   return (
@@ -138,13 +170,16 @@ export default function CustomersPage() {
                     Customer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
+                    Phone
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Bookings
+                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Appointment
+                    Source
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer Value
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -165,14 +200,20 @@ export default function CustomersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{customer.email}</div>
-                      <div className="text-sm text-gray-500">{customer.phone}</div>
+                      <div className="text-sm text-gray-900">{customer.phone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900">{customer.totalBookings}</div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        customer.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {customer.status}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{customer.lastAppointment}</div>
+                      <div className="text-sm text-gray-900">{customer.source}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900">${customer.customerValue}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
@@ -233,15 +274,8 @@ export default function CustomersPage() {
               </DialogHeader>
               
               <div className="space-y-6 py-4">
-                {/* Contact Info */}
+                {/* Customer Info */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-gray-500">Email</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Mail size={16} className="text-gray-400" />
-                      <span className="text-sm">{selectedCustomer.email}</span>
-                    </div>
-                  </div>
                   <div>
                     <Label className="text-xs text-gray-500">Phone</Label>
                     <div className="flex items-center gap-2 mt-1">
@@ -250,16 +284,37 @@ export default function CustomersPage() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500">Total Bookings</Label>
-                    <div className="text-2xl font-bold text-blue-600 mt-1">
-                      {selectedCustomer.totalBookings}
+                    <Label className="text-xs text-gray-500">Status</Label>
+                    <div className="text-sm mt-1 px-3 py-1 rounded-full inline-block font-medium" style={{
+                      backgroundColor: selectedCustomer.status === 'Active' ? '#d1fae5' : '#f3f4f6',
+                      color: selectedCustomer.status === 'Active' ? '#047857' : '#374151'
+                    }}>
+                      {selectedCustomer.status}
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500">Last Appointment</Label>
-                    <div className="text-sm mt-1">{selectedCustomer.lastAppointment}</div>
+                    <Label className="text-xs text-gray-500">Source</Label>
+                    <div className="text-sm mt-1">{selectedCustomer.source}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Customer Value</Label>
+                    <div className="text-lg font-bold text-blue-600 mt-1">${selectedCustomer.customerValue}</div>
                   </div>
                 </div>
+
+                {/* Team Members */}
+                {selectedCustomer.teamMembers.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Team Members</Label>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {selectedCustomer.teamMembers.map((member, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                          {member}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Notes */}
                 {selectedCustomer.notes && (
@@ -312,8 +367,9 @@ export default function CustomersPage() {
               <DialogDescription>Create a new customer profile</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="customerName">Full Name</Label>
+                <Label htmlFor="customerName">Name</Label>
                 <Input
                   id="customerName"
                   placeholder="John Doe"
@@ -321,16 +377,8 @@ export default function CustomersPage() {
                   onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={newCustomer.email}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                />
-              </div>
+
+              {/* Phone */}
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
                 <Input
@@ -341,14 +389,184 @@ export default function CustomersPage() {
                   onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
                 />
               </div>
+
+              {/* Status Combobox */}
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                    >
+                      {newCustomer.status || "Select status..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type status..."
+                        value={customStatusInput}
+                        onValueChange={setCustomStatusInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Press Enter to add custom status.</CommandEmpty>
+                        <CommandGroup>
+                          {['Active', 'Inactive', 'Pending'].map((status) => (
+                            <CommandItem
+                              key={status}
+                              value={status}
+                              onSelect={(value) => {
+                                setNewCustomer({ ...newCustomer, status: value });
+                                setCustomStatusInput('');
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newCustomer.status === status ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {status}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      <div className="border-t p-2">
+                        <Input
+                          placeholder="Type custom status..."
+                          className="h-8 text-sm border-slate-300"
+                          value={customStatusInput}
+                          onChange={(e) => setCustomStatusInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customStatusInput.trim()) {
+                              setNewCustomer({ ...newCustomer, status: customStatusInput.trim() });
+                              setCustomStatusInput('');
+                            }
+                          }}
+                        />
+                      </div>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Source Combobox */}
+              <div className="space-y-2">
+                <Label>Source</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                    >
+                      {newCustomer.source || "Select or type source..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type source..."
+                        value={customSourceInput}
+                        onValueChange={setCustomSourceInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Press Enter to add custom source.</CommandEmpty>
+                        <CommandGroup>
+                          {['Direct', 'Referral', 'Website', 'Social Media'].map((source) => (
+                            <CommandItem
+                              key={source}
+                              value={source}
+                              onSelect={(value) => {
+                                setNewCustomer({ ...newCustomer, source: value });
+                                setCustomSourceInput('');
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newCustomer.source === source ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {source}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      <div className="border-t p-2">
+                        <Input
+                          placeholder="Type custom source..."
+                          className="h-8 text-sm border-slate-300"
+                          value={customSourceInput}
+                          onChange={(e) => setCustomSourceInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customSourceInput.trim()) {
+                              setNewCustomer({ ...newCustomer, source: customSourceInput.trim() });
+                              setCustomSourceInput('');
+                            }
+                          }}
+                        />
+                      </div>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Customer Value */}
+              <div className="space-y-2">
+                <Label htmlFor="customerValue">Customer Value</Label>
+                <Input
+                  id="customerValue"
+                  type="number"
+                  placeholder="0"
+                  value={newCustomer.customerValue || ''}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, customerValue: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+
+              {/* Team Members (as text, comma separated) */}
+              <div className="space-y-2">
+                <Label htmlFor="teamMembers">Team Members (comma separated)</Label>
+                <Input
+                  id="teamMembers"
+                  placeholder="John Smith, Sarah Johnson"
+                  value={newCustomer.teamMembers.join(', ')}
+                  onChange={(e) => setNewCustomer({ 
+                    ...newCustomer, 
+                    teamMembers: e.target.value.split(',').map(m => m.trim()).filter(m => m)
+                  })}
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any notes..."
+                  value={newCustomer.notes}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
+                  className="resize-none"
+                  rows={3}
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsNewCustomerOpen(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsNewCustomerOpen(false);
+                  setCustomStatusInput('');
+                  setCustomSourceInput('');
+                }}
+              >
                 Cancel
               </Button>
               <Button 
                 onClick={handleCreateCustomer}
-                disabled={!newCustomer.name || !newCustomer.email}
+                disabled={!newCustomer.name || !newCustomer.phone || !newCustomer.status || !newCustomer.source}
               >
                 Add Customer
               </Button>

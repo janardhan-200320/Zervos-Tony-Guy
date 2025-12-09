@@ -70,8 +70,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       availableDays: [],
       availableTimeStart: '09:00 am',
       availableTimeEnd: '06:00 pm',
-      eventTypeLabel: '',
-      teamMemberLabel: '',
+      eventTypeLabel: 'Appointment',
+      teamMemberLabel: 'Staff',
       customFields: [],
       isCompleted: false,
     };
@@ -87,7 +87,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 3));
+    setCurrentStep((prev) => Math.min(prev + 1, 2));
   };
 
   const prevStep = () => {
@@ -95,7 +95,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const goToStep = (step: number) => {
-    setCurrentStep(Math.max(1, Math.min(step, 3)));
+    setCurrentStep(Math.max(1, Math.min(step, 2)));
   };
 
   return (

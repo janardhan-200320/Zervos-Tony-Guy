@@ -94,6 +94,7 @@ function Router() {
       <Route path="/">{() => <ProtectedRoute component={Onboarding} />}</Route>
       <Route path="/success">{() => <ProtectedRoute component={Success} />}</Route>
       <Route path="/feedback" component={FeedbackForm} />
+      <Route path="/booking" component={PublicBookingPage} />
       <Route path="/book/:serviceId" component={PublicBookingPage} />
       <Route path="/booking/:workspaceId" component={PublicBookingPage} />
   <Route path="/team/login" component={TeamLogin} />

@@ -63,7 +63,17 @@ export default function Step1BusinessDetails() {
   const isFormValid = businessName.trim() !== '' && isValidUrl(websiteUrl) && currency !== '';
 
   const handleNext = () => {
-    updateData({ businessName, businessLogo, location, description, websiteUrl, currency });
+    updateData({ 
+      businessName, 
+      businessLogo, 
+      location, 
+      description, 
+      websiteUrl, 
+      currency,
+      // Set default industry and business needs since they're required
+      industries: ['General'],
+      businessNeeds: ['Booking Management'],
+    });
     
     // Save business details to localStorage immediately for persistence
     try {

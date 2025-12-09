@@ -74,9 +74,20 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
 });
 
-export const insertOnboardingSchema = createInsertSchema(onboarding).omit({
-  id: true,
-});
+// Custom explicit schema for onboarding to ensure proper validation
+export const insertOnboardingSchema = z.object({
+  businessName: z.string().min(1, "Business name is required"),
+  websiteUrl: z.string().min(1, "Website URL is required"),
+  currency: z.string().min(1, "Currency is required"),
+  industries: z.array(z.string()).min(1, "At least one industry is required"),
+  businessNeeds: z.array(z.string()).min(1, "At least one business need is required"),
+  timezone: z.string().min(1, "Timezone is required"),
+  availableDays: z.array(z.string()).min(1, "At least one available day is required"),
+  availableTimeStart: z.string().min(1, "Start time is required"),
+  availableTimeEnd: z.string().min(1, "End time is required"),
+  eventTypeLabel: z.string().min(1, "Event type label is required"),
+  teamMemberLabel: z.string().min(1, "Team member label is required"),
+}).passthrough(); // Allow extra fields without failing
 
 export const insertResourceSchema = createInsertSchema(resources).omit({
   id: true,

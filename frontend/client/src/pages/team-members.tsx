@@ -469,8 +469,8 @@ export default function TeamMembersPage() {
     } catch {}
   };
 
-  const teamMemberLabel = company?.teamMemberLabel || 'Team Members';
-  const teamMemberSingular = teamMemberLabel.endsWith('s') ? teamMemberLabel.slice(0, -1) : teamMemberLabel;
+  const teamMemberLabel = 'Staff';
+  const teamMemberSingular = 'Staff';
 
   return (
     <DashboardLayout>

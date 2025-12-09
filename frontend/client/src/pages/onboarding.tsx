@@ -2,8 +2,6 @@ import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext'
 import ProgressStepper from '@/components/ProgressStepper';
 import Step1BusinessDetails from '@/components/Step1BusinessDetails';
 import Step3Availability from '@/components/Step3Availability';
-import Step4CustomLabels from '@/components/Step4CustomLabels';
-import SidebarPreview from '@/components/SidebarPreview';
 import { motion } from 'framer-motion';
 
 const steps = [
@@ -16,11 +14,6 @@ const steps = [
     number: 2,
     title: 'Set up your availability',
     description: 'Share your availability and start getting booked.',
-  },
-  {
-    number: 3,
-    title: 'Update your custom labels',
-    description: 'Rename certain modules in the product to match with your business terminologies.',
   },
 ];
 
@@ -117,20 +110,18 @@ function OnboardingContent() {
         return <Step1BusinessDetails />;
       case 2:
         return <Step3Availability />;
-      case 3:
-        return <Step4CustomLabels />;
       default:
         return <Step1BusinessDetails />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative">
+    <div className="h-screen w-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative flex flex-col overflow-hidden">
       <AnimatedBackground />
       
       {/* Header with glassmorphism effect */}
-      <header className="relative bg-white/80 backdrop-blur-xl border-b-2 border-gray-200/50 shadow-sm z-10">
-        <div className="max-w-7xl mx-auto px-8 py-5">
+      <header className="relative bg-white/80 backdrop-blur-xl border-b-2 border-gray-200/50 shadow-sm z-10 flex-shrink-0">
+        <div className="px-8 py-5">
           <motion.div 
             className="flex items-center gap-3"
             initial={{ opacity: 0, x: -20 }}
@@ -155,41 +146,39 @@ function OnboardingContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-8 py-6 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Main content with slide animation */}
-          <motion.div 
-            className="w-full h-full flex items-center"
-            key={currentStep}
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 30 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-gray-200/50 relative overflow-hidden w-full">
-              {/* Corner accent */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900/5 to-transparent rounded-bl-full" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-gray-800/5 to-transparent rounded-tr-full" />
-              
-              <div className="relative z-10">
-                {renderStep()}
-              </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex relative z-10 overflow-hidden">
+        {/* Left Section - Form */}
+        <motion.div 
+          className="w-1/2 flex items-center justify-center px-8 py-6 overflow-hidden"
+          key={currentStep}
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 30 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-gray-200/50 relative overflow-y-auto w-full h-full max-h-full">
+            {/* Corner accent */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-900/5 to-transparent rounded-bl-full" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-gray-800/5 to-transparent rounded-tr-full" />
+            
+            <div className="relative z-10">
+              {renderStep()}
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
 
-          {/* Sidebar with stagger animation */}
-          <motion.div 
-            className="h-full flex flex-col gap-5"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="flex-1 flex flex-col gap-5">
-              <ProgressStepper currentStep={currentStep} steps={steps} />
-              <SidebarPreview />
-            </div>
-          </motion.div>
-        </div>
+        {/* Right Section - Progress */}
+        <motion.div 
+          className="w-1/2 flex flex-col gap-5 px-8 py-6 overflow-hidden"
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <div className="flex-1 flex flex-col gap-5 overflow-hidden justify-start">
+            <ProgressStepper currentStep={currentStep} steps={steps} />
+          </div>
+        </motion.div>
       </div>
     </div>
   );

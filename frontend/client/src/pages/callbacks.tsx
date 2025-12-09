@@ -160,10 +160,10 @@ export default function WorkflowsPage() {
     } catch {}
   }, [salesCallsStorageKey]);
 
-  // Get dynamic label
-  const eventTypeLabel = company?.eventTypeLabel || 'Sales Calls';
-  const eventTypeSingular = eventTypeLabel.endsWith('s') ? eventTypeLabel.slice(0, -1) : eventTypeLabel;
-  const teamMemberLabel = company?.teamMemberLabel || 'Salespersons';
+  // Fixed labels
+  const eventTypeLabel = 'Appointment';
+  const eventTypeSingular = 'Appointment';
+  const teamMemberLabel = 'Staff';
 
   // Default examples (used when a workspace has no saved data yet)
   const defaultWorkflowsRef = useRef<Workflow[]>([

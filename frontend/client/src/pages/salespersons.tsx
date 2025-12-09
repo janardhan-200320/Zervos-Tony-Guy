@@ -102,10 +102,8 @@ export default function SalespersonsPage() {
     return () => clearTimeout(t);
   }, []);
 
-  const teamMemberLabel = orgLabels?.teamMemberLabel || company?.teamMemberLabel || 'Salespersons';
-  const teamMemberSingular = teamMemberLabel.endsWith('s') 
-    ? teamMemberLabel.slice(0, -1) 
-    : teamMemberLabel;
+  const teamMemberLabel = 'Staff';
+  const teamMemberSingular = 'Staff';
 
   const getRandomColor = () => {
     const colors = [

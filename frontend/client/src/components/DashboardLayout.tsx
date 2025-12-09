@@ -94,8 +94,8 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Use dynamic labels from company profile
-  const teamMemberLabel = company?.teamMemberLabel || 'Salespersons';
+  // Fixed labels
+  const teamMemberLabel = 'Staff';
 
   const navigation = [
     { name: 'Dashboard', icon: LayoutGrid, path: '/dashboard' },

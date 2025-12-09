@@ -192,15 +192,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST /api/onboarding - Create new onboarding
   app.post("/api/onboarding", async (req, res) => {
+    console.log("🚀 POST /api/onboarding - Starting");
     try {
       console.log("📝 Received onboarding data:", JSON.stringify(req.body, null, 2));
+      console.log("📝 Data types:", {
+        businessName: typeof req.body.businessName,
+        websiteUrl: typeof req.body.websiteUrl,
+        currency: typeof req.body.currency,
+        industries: Array.isArray(req.body.industries) ? "array" : typeof req.body.industries,
+        businessNeeds: Array.isArray(req.body.businessNeeds) ? "array" : typeof req.body.businessNeeds,
+        timezone: typeof req.body.timezone,
+        availableDays: Array.isArray(req.body.availableDays) ? "array" : typeof req.body.availableDays,
+        availableTimeStart: typeof req.body.availableTimeStart,
+        availableTimeEnd: typeof req.body.availableTimeEnd,
+        eventTypeLabel: typeof req.body.eventTypeLabel,
+        teamMemberLabel: typeof req.body.teamMemberLabel,
+      });
       
+      console.log("🔍 Validating with schema...");
       const result = insertOnboardingSchema.safeParse(req.body);
       
       if (!result.success) {
         const validationError = fromZodError(result.error);
         console.error("❌ Validation failed:", validationError.message);
-        console.error("Validation errors:", result.error.errors);
+        console.error("Validation error details:", JSON.stringify(result.error.errors, null, 2));
         return res.status(400).json({ 
           error: "Validation failed", 
           details: validationError.message,
@@ -208,17 +223,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log("✅ Validation passed, creating onboarding...");
+      console.log("✅ Validation passed");
+      console.log("💾 Creating onboarding record...");
+      
       const onboarding = await storage.createOnboarding(result.data);
-      console.log("✅ Onboarding created:", onboarding.id);
+      console.log("✅ Onboarding created successfully:", onboarding.id);
+      
       return res.status(201).json(onboarding);
     } catch (error: any) {
-      console.error("❌ Error creating onboarding:", error);
+      console.error("❌ Unexpected error in POST /api/onboarding:", error);
+      console.error("Error message:", error.message);
       console.error("Stack trace:", error.stack);
       return res.status(500).json({ 
         error: "Internal server error",
         message: error.message,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: error.stack
       });
     }
   });

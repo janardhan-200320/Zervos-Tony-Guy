@@ -1727,13 +1727,13 @@ export default function AppointmentsNew() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Assigned {company?.teamMemberLabel || 'Staff'}</Label>
+                  <Label>Assigned Staff</Label>
                   <Select
                     value={newAppointment.assignedStaff || undefined}
                     onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v.trim() })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={teamMemberOptions.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
+                      <SelectValue placeholder={teamMemberOptions.length > 0 ? 'Select Staff' : 'No staff available'} />
                     </SelectTrigger>
                     <SelectContent>
                       {teamMemberOptions.length > 0 ? (
@@ -2232,13 +2232,13 @@ export default function AppointmentsNew() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Assigned {company?.teamMemberLabel || 'Staff'}</Label>
+                  <Label>Assigned Staff</Label>
                   <Select
                     value={newAppointment.assignedStaff || undefined}
                     onValueChange={(v) => setNewAppointment({ ...newAppointment, assignedStaff: v.trim() })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={teamMemberOptions.length > 0 ? `Select ${company?.teamMemberLabel || 'Staff'}` : 'No staff available'} />
+                      <SelectValue placeholder={teamMemberOptions.length > 0 ? 'Select Staff' : 'No staff available'} />
                     </SelectTrigger>
                     <SelectContent>
                       {teamMemberOptions.length > 0 ? (
@@ -2768,7 +2768,7 @@ export default function AppointmentsNew() {
                       </div>
                       {selectedAppointment.assignedStaff && (
                         <div className="col-span-2">
-                          <p className="text-xs text-gray-500 mb-1">Assigned {company?.teamMemberLabel || 'Staff'}</p>
+                          <p className="text-xs text-gray-500 mb-1">Assigned Staff</p>
                           <p className="text-sm font-medium text-gray-900">
                             {teamMembers.find(m => m.id === selectedAppointment.assignedStaff)?.name || 'N/A'}
                           </p>

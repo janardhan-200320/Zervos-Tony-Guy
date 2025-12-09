@@ -58,45 +58,7 @@ export default function SidebarPreview() {
         );
 
       case 3:
-        return (
-          <div className="space-y-4">
-            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-foreground" />
-                <div className="font-medium text-sm">
-                  Custom Labels
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-2 bg-muted/40 rounded w-full" />
-                <div className="h-2 bg-muted/40 rounded w-3/4" />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-4">
-            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-foreground" />
-                <div className="font-medium text-sm">
-                  {data.eventTypeLabel || 'Properties Management'}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-foreground" />
-                <div className="font-medium text-sm">
-                  {data.teamMemberLabel || 'Agents'}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return null;
 
       default:
         return null;

@@ -175,15 +175,19 @@ const convertHHMMToMinutes = (time24?: string) => {
 };
 
 export default function PublicBookingPage() {
-  // Support both /book/:serviceId and /booking/:workspaceId routes
+  // Support multiple routes: /book/:serviceId, /booking/:workspaceId, /booking/:sessionId
   const [, bookParams] = useRoute('/book/:serviceId');
   const [, bookingParams] = useRoute('/booking/:workspaceId');
   
   const serviceId = bookParams?.serviceId;
   const urlWorkspaceId = bookingParams?.workspaceId;
   
+  // Check if urlWorkspaceId is actually a sessionId (session IDs start with "session-")
+  const isSessionRoute = urlWorkspaceId?.startsWith('session-');
+  const sessionId = isSessionRoute ? urlWorkspaceId : null;
+  
   // Get workspaceId from URL or localStorage
-  const workspaceId = urlWorkspaceId || localStorage.getItem('zervos_current_workspace') || 'default';
+  const workspaceId = (isSessionRoute ? localStorage.getItem('zervos_current_workspace') : urlWorkspaceId) || localStorage.getItem('zervos_current_workspace') || 'default';
 
   // Steps: 1-Branch, 2-Services/Products/Attendee, 3-Time, 4-Details, 5-Payment, 6-Confirmation
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
@@ -219,6 +223,9 @@ export default function PublicBookingPage() {
   const [showRecommendations, setShowRecommendations] = useState(true);
   const [likedServices, setLikedServices] = useState<Set<string>>(new Set());
   
+  // Session-specific booking state
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  
   // New state for multi-select services/products
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -238,8 +245,7 @@ export default function PublicBookingPage() {
     { id: '2', name: 'James K.', rating: 5, text: 'Best experience ever. Highly recommended!', date: '1 week ago' },
     { id: '3', name: 'Priya R.', rating: 4, text: 'Great quality and reasonable prices. Will visit again.', date: '2 weeks ago' },
   ]);
-  
-  // Promo codes database (in production, this would come from backend)
+    // Promo codes database (in production, this would come from backend)
   const promoCodes: Record<string, { discount: number; type: 'percent' | 'fixed'; minAmount?: number }> = {
     'FIRST10': { discount: 10, type: 'percent' },
     'SAVE50': { discount: 50, type: 'fixed', minAmount: 200 },
@@ -269,6 +275,151 @@ export default function PublicBookingPage() {
     }
   }, [callData]);
 
+  // Load session if sessionId is provided in URL
+  useEffect(() => {
+    if (sessionId) {
+      try {
+        // Get query parameters for services, products, and staff
+        const queryParams = new URLSearchParams(window.location.search);
+        const serviceIdsParam = queryParams.get('services');
+        const productIdsParam = queryParams.get('products');
+        const staffIdsParam = queryParams.get('staff');
+        
+        console.log('📌 Loading session:', sessionId);
+        console.log('📌 Query params - services:', serviceIdsParam, 'products:', productIdsParam, 'staff:', staffIdsParam);
+        console.log('📌 Workspace ID:', workspaceId);
+        
+        // Try multiple storage keys for sessions
+        let sessionsRaw = localStorage.getItem(`zervos_booking_sessions_${workspaceId}`);
+        
+        // Fallback: try to find any sessions key if specific one not found
+        if (!sessionsRaw) {
+          const allKeys = Object.keys(localStorage);
+          const sessionKey = allKeys.find(key => key.startsWith('zervos_booking_sessions_'));
+          if (sessionKey) {
+            sessionsRaw = localStorage.getItem(sessionKey);
+            console.log('📌 Using fallback session key:', sessionKey);
+          }
+        }
+        
+        // Also load the full services/products from storage for lookup
+        let servicesStorageRaw = localStorage.getItem(`zervos_services_${workspaceId}`);
+        if (!servicesStorageRaw) {
+          const allKeys = Object.keys(localStorage);
+          const svcKey = allKeys.find(key => key.startsWith('zervos_services_'));
+          if (svcKey) {
+            servicesStorageRaw = localStorage.getItem(svcKey);
+            console.log('📌 Using fallback services key:', svcKey);
+          }
+        }
+        
+        let productsStorageRaw = localStorage.getItem(`zervos_products_${workspaceId}`);
+        if (!productsStorageRaw) {
+          const allKeys = Object.keys(localStorage);
+          const prodKey = allKeys.find(key => key.startsWith('zervos_products_'));
+          if (prodKey) {
+            productsStorageRaw = localStorage.getItem(prodKey);
+            console.log('📌 Using fallback products key:', prodKey);
+          }
+        }
+        
+        const teamMembersRaw = localStorage.getItem('zervos_team_members');
+        
+        const allStoredServices = servicesStorageRaw ? JSON.parse(servicesStorageRaw) : [];
+        const allStoredProducts = productsStorageRaw ? JSON.parse(productsStorageRaw) : [];
+        const allStoredMembers = teamMembersRaw ? JSON.parse(teamMembersRaw) : [];
+        
+        console.log('📌 All stored services:', allStoredServices.length);
+        console.log('📌 All stored products:', allStoredProducts.length);
+        
+        if (sessionsRaw) {
+          const sessions = JSON.parse(sessionsRaw);
+          console.log('📌 Found sessions:', sessions.length);
+          const found = sessions.find((s: any) => s.id === sessionId);
+          if (found) {
+            console.log('✅ Found session:', found);
+            console.log('📌 Session selectedServices:', found.selectedServices);
+            console.log('📌 Session selectedProducts:', found.selectedProducts);
+            setSelectedSession(found);
+            
+            // Handle services - use session's selected services directly if available
+            if (found.selectedServices && found.selectedServices.length > 0) {
+              console.log('✅ Using session selectedServices:', found.selectedServices.length);
+              setAllServices(found.selectedServices);
+              setSelectedServices(found.selectedServices);
+            } else if (serviceIdsParam) {
+              // Fallback: filter from query params
+              const requestedServiceIds = serviceIdsParam.split(',').map(id => decodeURIComponent(id));
+              console.log('📌 Requested service IDs from URL:', requestedServiceIds);
+              
+              const filteredServices = allStoredServices.filter((s: any) => 
+                requestedServiceIds.includes(s.id) && s.isEnabled !== false
+              );
+              
+              console.log('📌 Filtered services from storage:', filteredServices.length, filteredServices);
+              setAllServices(filteredServices);
+              setSelectedServices(filteredServices);
+            }
+            
+            // Handle products - use session's selected products directly if available
+            if (found.selectedProducts && found.selectedProducts.length > 0) {
+              console.log('✅ Using session selectedProducts:', found.selectedProducts.length);
+              setAllProducts(found.selectedProducts);
+              setSelectedProducts(found.selectedProducts);
+            } else if (productIdsParam) {
+              // Fallback: filter from query params
+              const requestedProductIds = productIdsParam.split(',').map(id => decodeURIComponent(id));
+              console.log('📌 Requested product IDs from URL:', requestedProductIds);
+              
+              const filteredProducts = allStoredProducts.filter((p: any) => 
+                requestedProductIds.includes(p.id) && p.isActive !== false
+              );
+              
+              console.log('📌 Filtered products from storage:', filteredProducts.length, filteredProducts);
+              setAllProducts(filteredProducts);
+              setSelectedProducts(filteredProducts);
+            }
+            
+            // Handle staff - filter by query param IDs or session's assigned staff
+            if (staffIdsParam) {
+              const requestedStaffIds = staffIdsParam.split(',').map(id => decodeURIComponent(id));
+              console.log('📌 Requested staff IDs:', requestedStaffIds);
+              
+              const filteredStaff = allStoredMembers.filter((m: any) => 
+                requestedStaffIds.includes(m.id) && (m.status === 'active' || !m.status)
+              );
+              
+              console.log('📌 Filtered staff:', filteredStaff.length, filteredStaff);
+              setTeamMembers(filteredStaff);
+              
+              // Auto-select if only one staff member
+              if (filteredStaff.length === 1) {
+                setSelectedAttendee(filteredStaff[0].id);
+              }
+            } else if (found.assignedStaff && found.assignedStaff.length > 0) {
+              // Filter team members to only show assigned staff from session
+              const filteredStaff = allStoredMembers.filter((m: any) => 
+                found.assignedStaff.includes(m.id) && (m.status === 'active' || !m.status)
+              );
+              setTeamMembers(filteredStaff);
+              
+              // Auto-select if only one staff member
+              if (filteredStaff.length === 1) {
+                setSelectedAttendee(filteredStaff[0].id);
+              }
+            }
+          } else {
+            console.log('❌ Session not found with ID:', sessionId);
+          }
+        } else {
+          console.log('❌ No sessions found in storage');
+        }
+      } catch (error) {
+        console.error('Error loading session:', error);
+      }
+    }
+  }, [sessionId, workspaceId]);
+
   // Load branches
   useEffect(() => {
     try {
@@ -291,8 +442,14 @@ export default function PublicBookingPage() {
     } catch {}
   }, []);
 
-  // Load team members for attendee selection
+  // Load team members for attendee selection (only when NOT in session mode)
   useEffect(() => {
+    // Skip if in session mode - team members are filtered from session's assigned staff
+    if (sessionId) {
+      console.log('📌 Session mode detected, skipping global team members load');
+      return;
+    }
+    
     try {
       const membersRaw = localStorage.getItem('zervos_team_members');
       if (membersRaw) {
@@ -300,10 +457,16 @@ export default function PublicBookingPage() {
         setTeamMembers(Array.isArray(parsed) ? parsed.filter((m: any) => m.status === 'active' || !m.status) : []);
       }
     } catch {}
-  }, []);
+  }, [sessionId]);
 
-  // Load all services and products for recommendations
+  // Load all services and products for recommendations (only when NOT in session mode)
   useEffect(() => {
+    // Skip loading all services/products if we're in session mode - those are loaded from the session
+    if (sessionId) {
+      console.log('📌 Session mode detected, skipping global services/products load');
+      return;
+    }
+    
     try {
       // Load services
       const servicesRaw = localStorage.getItem('zervos_services_default') || localStorage.getItem('zervos_services');
@@ -329,7 +492,7 @@ export default function PublicBookingPage() {
         setRecommendedProducts(shuffled.slice(0, Math.min(3, shuffled.length)));
       }
     } catch {}
-  }, []);
+  }, [sessionId]);
 
   // Listen for time slot updates
   useEffect(() => {

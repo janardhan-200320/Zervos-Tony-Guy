@@ -8,9 +8,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { motion } from 'framer-motion';
-import { Clock } from 'lucide-react';
+import { Clock, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 const timezones = [
   'Asia/Kolkata - IST (+05:30)',
@@ -40,11 +49,15 @@ const daysOfWeek = [
 ];
 
 export default function Step3Availability() {
-  const { data, updateData, nextStep, prevStep } = useOnboarding();
+  const { data, updateData, prevStep } = useOnboarding();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [timezone, setTimezone] = useState(data.timezone);
   const [startTime, setStartTime] = useState(data.availableTimeStart);
   const [endTime, setEndTime] = useState(data.availableTimeEnd);
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]); // Default: Mon-Fri
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isFormValid = Boolean(timezone && startTime && endTime && selectedWeekdays.length > 0);
 
@@ -55,16 +68,116 @@ export default function Step3Availability() {
     });
   };
 
-  const handleNext = () => {
+  // Convert date to ISO string for consistent handling
+  const getDateKey = (date: any): string => {
+    try {
+      if (!date) return '';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return '';
+      return d.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
+  const toggleDate = (date: any) => {
+    const key = getDateKey(date);
+    if (!key) return;
+    
+    setSelectedDates((prev) => {
+      const exists = prev.some((d) => getDateKey(d) === key);
+      if (exists) {
+        return prev.filter((d) => getDateKey(d) !== key);
+      }
+      
+      // Store as proper Date object
+      try {
+        const dateObj = new Date(date);
+        return [...prev, dateObj];
+      } catch {
+        return prev;
+      }
+    });
+  };
+
+  const handleNext = async () => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const availableDays = selectedWeekdays.map(idx => dayNames[idx]);
+    const finalData = {
+      businessName: data.businessName || '',
+      websiteUrl: data.websiteUrl || '',
+      currency: data.currency || 'INR',
+      industries: Array.isArray(data.industries) ? data.industries : ['General'],
+      businessNeeds: Array.isArray(data.businessNeeds) ? data.businessNeeds : ['Booking Management'],
+      timezone,
+      availableDays,
+      availableTimeStart: startTime,
+      availableTimeEnd: endTime,
+      eventTypeLabel: data.eventTypeLabel || 'Appointment',
+      teamMemberLabel: data.teamMemberLabel || 'Staff',
+    };
+    
+    // Validate required fields
+    if (!finalData.businessName.trim()) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter a business name',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!finalData.websiteUrl.trim()) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter a website URL',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     updateData({
       timezone,
       availableTimeStart: startTime,
       availableTimeEnd: endTime,
       availableDays,
+      isCompleted: true,
     });
-    nextStep();
+    
+    // Submit onboarding data to backend
+    setIsSubmitting(true);
+    try {
+      console.log('📝 Submitting onboarding data:', finalData);
+      const response = await apiRequest('POST', '/api/onboarding', finalData);
+      const result = await response.json();
+      console.log('✅ Onboarding completed:', result);
+      
+      // Clear onboarding data from localStorage
+      localStorage.removeItem('zervos_onboarding');
+      
+      // Show success toast
+      toast({
+        title: 'Setup Complete!',
+        description: 'Your account has been created successfully. Redirecting to dashboard...',
+      });
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        setLocation('/dashboard');
+      }, 1000);
+    } catch (error: any) {
+      console.error('❌ Error completing onboarding:', error);
+      console.error('Error details:', error.message);
+      setIsSubmitting(false);
+      
+      // Show error toast
+      const errorMessage = error?.message || 'Failed to complete setup. Please try again.';
+      toast({
+        title: 'Setup Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleBack = () => {
@@ -235,7 +348,7 @@ export default function Step3Availability() {
                 Available Days
               </Label>
 
-          <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 {daysOfWeek.map((d, idx) => (
                   <motion.button
                     key={d.full}
@@ -270,6 +383,98 @@ export default function Step3Availability() {
             </div>
           </div>
         </motion.div>
+
+        {/* Specific Dates Calendar Card */}
+        <motion.div
+          className="group relative"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          whileHover={{ y: -4 }}
+        >
+          <div className="relative bg-white border-2 border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-lg hover:border-gray-300 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 to-white rounded-2xl pointer-events-none" />
+            <div className="relative z-10 space-y-4">
+              <Label className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-gray-600" />
+                Business Open on Specific Dates (Optional)
+              </Label>
+              
+              <div className="flex flex-col gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-12 border-2 border-gray-300 hover:border-gray-900 hover:bg-gray-50 font-semibold rounded-xl transition-all duration-300 justify-start text-left"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDates.length > 0
+                          ? `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected`
+                          : 'Click to select dates'}
+                      </Button>
+                    </motion.div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="multiple"
+                      selected={selectedDates}
+                      onSelect={(dates) => {
+                        // Handle both single date and array of dates
+                        if (Array.isArray(dates)) {
+                          setSelectedDates(dates);
+                        } else if (dates) {
+                          toggleDate(dates);
+                        }
+                      }}
+                      disabled={(date) => {
+                        // Disable past dates
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      className="rounded-md border"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {selectedDates.length > 0 && (
+                  <div className="mt-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">Selected Dates:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDates
+                        .map((date) => {
+                          const key = getDateKey(date);
+                          const dateObj = new Date(date);
+                          return { key, date: dateObj };
+                        })
+                        .sort((a, b) => a.date.getTime() - b.date.getTime())
+                        .map(({ key, date }) => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            onClick={() => toggleDate(date)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-3 py-1 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1"
+                          >
+                            {date.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </motion.button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
 
       <motion.div 
@@ -292,17 +497,26 @@ export default function Step3Availability() {
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
             onClick={handleNext}
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
             data-testid="button-next"
             className="min-w-36 h-12 bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden group"
           >
-            <span className="relative z-10">Next</span>
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '100%' }}
-              transition={{ duration: 0.5 }}
-            />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <span className="relative z-10">Creating...</span>
+              </>
+            ) : (
+              <>
+                <span className="relative z-10">Complete Setup</span>
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
+                  initial={{ x: '-100%' }}
+                  whileHover={{ x: '100%' }}
+                  transition={{ duration: 0.5 }}
+                />
+              </>
+            )}
           </Button>
         </motion.div>
       </motion.div>

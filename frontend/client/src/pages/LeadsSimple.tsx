@@ -5,7 +5,8 @@ import {
   User, Edit, Trash2, Eye, Briefcase, FileText, Clock, CheckCircle2, 
   XCircle, Users, TrendingUp, Download, Package, DollarSign, ShoppingBag,
   FileSpreadsheet, Star, AlertCircle, Upload, ShoppingCart, BarChart3,
-  PieChart, ArrowUpRight, ArrowDownRight, Target, Activity, CalendarDays
+  PieChart, ArrowUpRight, ArrowDownRight, Target, Activity, CalendarDays,
+  Check, ChevronsUpDown
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -38,10 +39,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { cn } from "@/lib/utils";
 
 interface CustomerAppointment {
   id: string;
@@ -286,25 +301,15 @@ export default function CustomersPage() {
   const [currentCompetitor, setCurrentCompetitor] = useState('');
   const [newLead, setNewLead] = useState({
     name: '',
-    email: '',
     phone: '',
-    company: '',
-    role: '',
     source: '',
     notes: '',
     status: '',
-    tags: [] as string[],
-    position: '',
-    address: '',
-    city: '',
-    state: '',
-    country: 'India',
-    zipCode: '',
     leadValue: '',
-    website: '',
-    defaultLanguage: 'System Default',
     assigned: '',
   });
+  const [customStatusInput, setCustomStatusInput] = useState('');
+  const [customSourceInput, setCustomSourceInput] = useState('');
   const [currentTag, setCurrentTag] = useState('');
   
   const [newCustomer, setNewCustomer] = useState({
@@ -371,12 +376,12 @@ export default function CustomersPage() {
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = 
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.role.toLowerCase().includes(searchQuery.toLowerCase());
+      (lead.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (lead.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (lead.company?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (lead.role?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     
-    const matchesSource = filterSource === 'all' || lead.source.toLowerCase().includes(filterSource.toLowerCase());
+    const matchesSource = filterSource === 'all' || (lead.source?.toLowerCase() || '').includes(filterSource.toLowerCase());
     
     return matchesSearch && matchesSource;
   });
@@ -1002,10 +1007,10 @@ export default function CustomersPage() {
   };
 
   const handleAddLead = () => {
-    if (!newLead.name || !newLead.email) {
+    if (!newLead.name || !newLead.phone || !newLead.status || !newLead.source) {
       toast({
         title: "Missing Information",
-        description: "Please fill in at least name and email fields.",
+        description: "Please fill in name, phone, status, and source fields.",
         variant: "destructive",
       });
       return;
@@ -1142,10 +1147,10 @@ export default function CustomersPage() {
   };
 
   const handleUpdateLead = () => {
-    if (!editingLead.name || !editingLead.email) {
+    if (!editingLead.name || !editingLead.phone || !editingLead.status || !editingLead.source) {
       toast({
         title: "Missing Information",
-        description: "Please fill in at least name and email fields.",
+        description: "Please fill in name, phone, status, and source fields.",
         variant: "destructive",
       });
       return;
@@ -3024,64 +3029,210 @@ export default function CustomersPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            {/* Status and Source Row */}
+            {/* Name */}
             <motion.div 
-              className="grid grid-cols-3 gap-4"
+              className="grid gap-2"
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
+            >
+              <Label htmlFor="name" className="flex items-center gap-1">
+                <span className="text-red-500">*</span> Name
+              </Label>
+              <motion.div whileFocus={{ scale: 1.01 }}>
+                <Input
+                  id="name"
+                  placeholder="Enter full name"
+                  value={newLead.name}
+                  onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* Phone */}
+            <motion.div 
+              className="grid gap-2"
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Label htmlFor="phone" className="flex items-center gap-1">
+                <span className="text-red-500">*</span> Phone
+              </Label>
+              <Input
+                id="phone"
+                placeholder="+91 98765 43210"
+                value={newLead.phone}
+                onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
+              />
+            </motion.div>
+
+            {/* Status and Source Row */}
+            <motion.div 
+              className="grid grid-cols-2 gap-4"
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.25 }}
             >
               <div className="grid gap-2">
                 <Label htmlFor="status" className="flex items-center gap-1">
                   <span className="text-red-500">*</span> Status
                 </Label>
-                <Select value={newLead.status} onValueChange={(value) => setNewLead({ ...newLead, status: value })}>
-                  <SelectTrigger className="border-slate-300 focus:border-brand-500 focus:ring-brand-200">
-                    <SelectValue placeholder="Non selected" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New Customer</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="qualified">Qualified</SelectItem>
-                    <SelectItem value="negotiation">In Negotiation</SelectItem>
-                    <SelectItem value="won">Won</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between border-slate-300"
+                    >
+                      {newLead.status || "Select status..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type status..." 
+                        value={customStatusInput}
+                        onValueChange={setCustomStatusInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Press Enter to add custom status.</CommandEmpty>
+                        <CommandGroup>
+                          {['New Customer', 'Contacted', 'Qualified', 'In Negotiation', 'Won', 'Lost'].map((status) => (
+                            <CommandItem
+                              key={status}
+                              value={status}
+                              onSelect={(value) => {
+                                setNewLead({ ...newLead, status: value });
+                                setCustomStatusInput('');
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newLead.status === status ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {status}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      <div className="border-t p-2">
+                        <Input
+                          placeholder="Type custom status..."
+                          className="h-8 text-sm border-slate-300"
+                          value={customStatusInput}
+                          onChange={(e) => setCustomStatusInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customStatusInput.trim()) {
+                              setNewLead({ ...newLead, status: customStatusInput.trim() });
+                              setCustomStatusInput('');
+                            }
+                          }}
+                        />
+                      </div>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="grid gap-2">
                 <Label htmlFor="source" className="flex items-center gap-1">
                   <span className="text-red-500">*</span> Source
                 </Label>
-                <Select value={newLead.source} onValueChange={(value) => setNewLead({ ...newLead, source: value })}>
-                  <SelectTrigger className="border-slate-300 focus:border-brand-500 focus:ring-brand-200">
-                    <SelectValue placeholder="Non selected" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Website Contact Form">Website Contact Form</SelectItem>
-                    <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                    <SelectItem value="Referral">Referral</SelectItem>
-                    <SelectItem value="Email Campaign">Email Campaign</SelectItem>
-                    <SelectItem value="Cold Call">Cold Call</SelectItem>
-                    <SelectItem value="Trade Show">Trade Show</SelectItem>
-                    <SelectItem value="Social Media">Social Media</SelectItem>
-                    <SelectItem value="Walk-in">Walk-in</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between border-slate-300"
+                    >
+                      {newLead.source || "Select or type source..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type source..." 
+                        value={customSourceInput}
+                        onValueChange={setCustomSourceInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Press Enter to add custom source.</CommandEmpty>
+                        <CommandGroup>
+                          {['Website Contact Form', 'LinkedIn', 'Referral', 'Email Campaign', 'Cold Call', 'Trade Show', 'Social Media', 'Walk-in'].map((source) => (
+                            <CommandItem
+                              key={source}
+                              value={source}
+                              onSelect={(value) => {
+                                setNewLead({ ...newLead, source: value });
+                                setCustomSourceInput('');
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newLead.source === source ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {source}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      <div className="border-t p-2">
+                        <Input
+                          placeholder="Type custom source..."
+                          className="h-8 text-sm border-slate-300"
+                          value={customSourceInput}
+                          onChange={(e) => setCustomSourceInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customSourceInput.trim()) {
+                              setNewLead({ ...newLead, source: customSourceInput.trim() });
+                              setCustomSourceInput('');
+                            }
+                          }}
+                        />
+                      </div>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </motion.div>
+
+            {/* Lead Value and Team Members */}
+            <motion.div 
+              className="grid grid-cols-2 gap-4"
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <div className="grid gap-2">
+                <Label htmlFor="leadValue">Customer Value</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
+                  <Input
+                    id="leadValue"
+                    type="number"
+                    placeholder="0"
+                    value={newLead.leadValue}
+                    onChange={(e) => setNewLead({ ...newLead, leadValue: e.target.value })}
+                    className="pl-8 border-slate-300 focus:border-brand-500 focus:ring-brand-200"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="assigned">
-                  Assigned {company?.teamMemberLabel || 'Team Member'}
-                </Label>
+                <Label htmlFor="assigned">Team Members</Label>
                 <Select 
                   value={newLead.assigned}
                   onValueChange={(value) => setNewLead({...newLead, assigned: value})}
                 >
                   <SelectTrigger className="border-slate-300 focus:border-brand-500 focus:ring-brand-200">
-                    <SelectValue placeholder={teamMembers.length > 0 ? `Select ${company?.teamMemberLabel || 'Team Member'}` : 'No staff available'} />
+                    <SelectValue placeholder={teamMembers.length > 0 ? 'Select Staff' : 'No staff available'} />
                   </SelectTrigger>
                   <SelectContent>
                     {teamMembers.length > 0 ? (
@@ -3098,298 +3249,12 @@ export default function CustomersPage() {
               </div>
             </motion.div>
 
-            {/* Tags */}
-            <motion.div 
-              className="grid gap-2"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Label htmlFor="tags" className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-slate-500" />
-                Tags
-              </Label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    id="tags"
-                    placeholder="Add tag and press Enter"
-                    value={currentTag}
-                    onChange={(e) => setCurrentTag(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && currentTag.trim()) {
-                        e.preventDefault();
-                        setNewLead({ ...newLead, tags: [...newLead.tags, currentTag.trim()] });
-                        setCurrentTag('');
-                      }
-                    }}
-                    className="flex-1 border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (currentTag.trim()) {
-                        setNewLead({ ...newLead, tags: [...newLead.tags, currentTag.trim()] });
-                        setCurrentTag('');
-                      }
-                    }}
-                    className="px-3"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {newLead.tags.length > 0 && (
-                  <motion.div 
-                    className="flex flex-wrap gap-2"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    {newLead.tags.map((tag, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                      >
-                        <Badge 
-                          variant="secondary" 
-                          className="flex items-center gap-1 bg-brand-100 text-brand-800 border-brand-200"
-                        >
-                          {tag}
-                          <button
-                            onClick={() => setNewLead({ ...newLead, tags: newLead.tags.filter((_, i) => i !== index) })}
-                            className="ml-1 hover:text-brand-900"
-                          >
-                            <XCircle className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Name and Email */}
-            <motion.div 
-              className="grid grid-cols-2 gap-4"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.25 }}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="name" className="flex items-center gap-1">
-                  <span className="text-red-500">*</span> Name
-                </Label>
-                <motion.div whileFocus={{ scale: 1.01 }}>
-                  <Input
-                    id="name"
-                    placeholder="Enter full name"
-                    value={newLead.name}
-                    onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                    className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                </motion.div>
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email Address</Label>
-                <motion.div whileFocus={{ scale: 1.01 }}>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={newLead.email}
-                    onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                    className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                </motion.div>
-              </div>
-            </motion.div>
-
-            {/* Address and Position */}
-            <motion.div 
-              className="grid grid-cols-2 gap-4"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  placeholder="Street address"
-                  value={newLead.address}
-                  onChange={(e) => setNewLead({ ...newLead, address: e.target.value })}
-                  rows={3}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200 resize-none"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="position">Position</Label>
-                  <Input
-                    id="position"
-                    placeholder="Job title"
-                    value={newLead.position}
-                    onChange={(e) => setNewLead({ ...newLead, position: e.target.value })}
-                    className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    placeholder="City"
-                    value={newLead.city}
-                    onChange={(e) => setNewLead({ ...newLead, city: e.target.value })}
-                    className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                </div>
-              </div>
-            </motion.div>
-
-            {/* State, Country, Zip */}
-            <motion.div 
-              className="grid grid-cols-3 gap-4"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.35 }}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  placeholder="State/Province"
-                  value={newLead.state}
-                  onChange={(e) => setNewLead({ ...newLead, state: e.target.value })}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="country">Country</Label>
-                <Select value={newLead.country} onValueChange={(value) => setNewLead({ ...newLead, country: value })}>
-                  <SelectTrigger className="border-slate-300 focus:border-brand-500 focus:ring-brand-200">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="India">India</SelectItem>
-                    <SelectItem value="USA">United States</SelectItem>
-                    <SelectItem value="UK">United Kingdom</SelectItem>
-                    <SelectItem value="Canada">Canada</SelectItem>
-                    <SelectItem value="Australia">Australia</SelectItem>
-                    <SelectItem value="Germany">Germany</SelectItem>
-                    <SelectItem value="France">France</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="zipCode">Zip Code</Label>
-                <Input
-                  id="zipCode"
-                  placeholder="Postal code"
-                  value={newLead.zipCode}
-                  onChange={(e) => setNewLead({ ...newLead, zipCode: e.target.value })}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                />
-              </div>
-            </motion.div>
-
-            {/* Phone, Website, Company */}
-            <motion.div 
-              className="grid grid-cols-3 gap-4"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  placeholder="+91 98765 43210"
-                  value={newLead.phone}
-                  onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  placeholder="https://example.com"
-                  value={newLead.website}
-                  onChange={(e) => setNewLead({ ...newLead, website: e.target.value })}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  placeholder="Company name"
-                  value={newLead.company}
-                  onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}
-                  className="border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                />
-              </div>
-            </motion.div>
-
-            {/* Lead Value and Language */}
-            <motion.div 
-              className="grid grid-cols-2 gap-4"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.45 }}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="leadValue">Lead value</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
-                  <Input
-                    id="leadValue"
-                    type="number"
-                    placeholder="0"
-                    value={newLead.leadValue}
-                    onChange={(e) => setNewLead({ ...newLead, leadValue: e.target.value })}
-                    className="pl-8 border-slate-300 focus:border-brand-500 focus:ring-brand-200"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="defaultLanguage">Default Language</Label>
-                <Select value={newLead.defaultLanguage} onValueChange={(value) => setNewLead({ ...newLead, defaultLanguage: value })}>
-                  <SelectTrigger className="border-slate-300 focus:border-brand-500 focus:ring-brand-200">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="System Default">System Default</SelectItem>
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="Hindi">Hindi</SelectItem>
-                    <SelectItem value="Spanish">Spanish</SelectItem>
-                    <SelectItem value="French">French</SelectItem>
-                    <SelectItem value="German">German</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </motion.div>
-
             {/* Notes */}
             <motion.div 
               className="grid gap-2"
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
+              transition={{ delay: 0.35 }}
             >
               <Label htmlFor="notes">Notes</Label>
               <Textarea
@@ -3416,26 +3281,15 @@ export default function CustomersPage() {
                   setIsAddDialogOpen(false);
                   setNewLead({
                     name: '',
-                    email: '',
                     phone: '',
-                    company: '',
-                    role: '',
                     source: '',
                     notes: '',
                     status: '',
-                    tags: [],
-                    position: '',
-                    address: '',
-                    city: '',
-                    state: '',
-                    country: 'India',
-                    zipCode: '',
                     leadValue: '',
-                    website: '',
-                    defaultLanguage: 'System Default',
                     assigned: '',
                   });
-                  setCurrentTag('');
+                  setCustomStatusInput('');
+                  setCustomSourceInput('');
                 }}
                 className="flex-1 sm:flex-none"
               >
