@@ -85,7 +85,7 @@ export default function ProductsPage() {
   const [customProductsReportDates, setCustomProductsReportDates] = useState({ from: '', to: '' });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -100,7 +100,7 @@ export default function ProductsPage() {
   });
 
   const defaultCategories = ['Spa Products', 'Hair Care', 'Skin Care', 'Makeup', 'Fitness Equipment', 'Supplements', 'Retail', 'Other'];
-  
+
   // Combine default and custom categories
   const categories = [...defaultCategories, ...customCategories];
 
@@ -171,13 +171,13 @@ export default function ProductsPage() {
     const totalInventoryValue = filteredProducts.reduce((sum, p) => sum + (parseInt(p.stock || '0') * parseFloat(p.price || '0')), 0);
     const lowStockProducts = filteredProducts.filter(p => parseInt(p.stock || '0') <= 10 && parseInt(p.stock || '0') > 0);
     const outOfStockProducts = filteredProducts.filter(p => parseInt(p.stock || '0') === 0);
-    
+
     // Period label
     const periodLabel = productsReportPeriod === 'today' ? "Today's" :
-                       productsReportPeriod === 'week' ? 'Weekly' :
-                       productsReportPeriod === 'month' ? 'Monthly' :
-                       productsReportPeriod === 'year' ? 'Yearly' : 'Custom Range';
-    
+      productsReportPeriod === 'week' ? 'Weekly' :
+        productsReportPeriod === 'month' ? 'Monthly' :
+          productsReportPeriod === 'year' ? 'Yearly' : 'Custom Range';
+
     // Category breakdown
     const categoryStats = categories.map(cat => {
       const catProducts = filteredProducts.filter(p => p.category === cat);
@@ -262,7 +262,7 @@ export default function ProductsPage() {
 
     if (format === 'csv' || format === 'excel') {
       let csvContent = '';
-      
+
       // Summary Section
       csvContent += `${businessName} - Products Report\n`;
       csvContent += `Generated on: ${date}\n\n`;
@@ -414,7 +414,7 @@ export default function ProductsPage() {
       'Category',
       'Description/Notes'
     ];
-    
+
     const sampleData = [
       ['Hair Serum', '1100', 'HAIR-101', '50', 'Hair Care', 'Premium anti-frizz serum'],
       ['Face Cream', '1300', 'SKIN-201', '75', 'Skin Care', 'Moisturizing day cream'],
@@ -457,10 +457,10 @@ export default function ProductsPage() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       console.log('CSV file content:', text);
-      
+
       const lines = text.split('\n').filter(line => line.trim() && !line.startsWith('#'));
       console.log('Parsed lines:', lines);
-      
+
       if (lines.length < 2) {
         toast({
           title: 'Invalid CSV',
@@ -478,12 +478,12 @@ export default function ProductsPage() {
         const line = lines[i];
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
         console.log(`Line ${i}:`, values);
-        
+
         // Check if this is the product header row (starts with Product Name)
         if (values[0] === 'Product Name' || values[0].toLowerCase().includes('product name')) {
           headerIndex = i;
           const headers = values;
-          
+
           // Parse product rows
           for (let j = i + 1; j < lines.length; j++) {
             const productValues = lines[j].split(',').map(v => v.trim().replace(/"/g, ''));
@@ -532,7 +532,7 @@ export default function ProductsPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     console.log('File selected:', file);
-    
+
     if (file) {
       if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
         toast({
@@ -552,7 +552,7 @@ export default function ProductsPage() {
   const processBulkImport = () => {
     console.log('processBulkImport called');
     console.log('importedData:', importedData);
-    
+
     if (importedData.length === 0) {
       toast({
         title: 'No Data',
@@ -592,7 +592,7 @@ export default function ProductsPage() {
 
     if (newProducts.length > 0) {
       saveProducts([...products, ...newProducts]);
-      
+
       // Store data for POS with prices in cents
       const productsForPOS = newProducts.map(prod => ({
         ...prod,
@@ -603,19 +603,19 @@ export default function ProductsPage() {
         services: productsForPOS,
         type: 'products'
       };
-      
+
       localStorage.setItem('bulk_import_data', JSON.stringify(bulkData));
-      
+
       // Close dialog first
       setIsBulkImportOpen(false);
       setCsvFile(null);
       setImportedData([]);
-      
+
       toast({
         title: '✅ Products Imported Successfully!',
         description: `${newProducts.length} products added. Opening POS for billing...`,
       });
-      
+
       // Navigate to POS
       setTimeout(() => {
         setLocation('/pos-register');
@@ -788,8 +788,8 @@ export default function ProductsPage() {
 
     if (editingProduct) {
       // Update existing product
-      const updatedProducts = products.map(p => 
-        p.id === editingProduct.id 
+      const updatedProducts = products.map(p =>
+        p.id === editingProduct.id
           ? { ...p, ...formData }
           : p
       );
@@ -817,7 +817,7 @@ export default function ProductsPage() {
 
   const handleDelete = () => {
     if (!deletingProduct) return;
-    
+
     const updatedProducts = products.filter(p => p.id !== deletingProduct.id);
     saveProducts(updatedProducts);
     setIsDeleteDialogOpen(false);
@@ -868,39 +868,37 @@ export default function ProductsPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <InlineFeatureGate feature="inventoryManagement" requiredPlan="elite">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
-                    <BarChart3 size={18} />
-                    Reports
-                    <ChevronDown size={14} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('today'); setIsReportsOpen(true); }}>
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Today's Report
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('week'); setIsReportsOpen(true); }}>
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Weekly Report
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('month'); setIsReportsOpen(true); }}>
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Monthly Report
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('year'); setIsReportsOpen(true); }}>
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Yearly Report
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('custom'); setIsReportsOpen(true); }}>
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Custom Range
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </InlineFeatureGate>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                  <BarChart3 size={18} />
+                  Reports
+                  <ChevronDown size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={() => { setProductsReportPeriod('today'); setIsReportsOpen(true); }}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Today's Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setProductsReportPeriod('week'); setIsReportsOpen(true); }}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Weekly Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setProductsReportPeriod('month'); setIsReportsOpen(true); }}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Monthly Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setProductsReportPeriod('year'); setIsReportsOpen(true); }}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Yearly Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setProductsReportPeriod('custom'); setIsReportsOpen(true); }}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Custom Range
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setIsBulkImportOpen(true)} variant="outline" className="gap-2 border-green-300 text-green-700 hover:bg-green-50">
               <Upload size={18} />
               Import Bulk
@@ -957,16 +955,15 @@ export default function ProductsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product, index) => (
-                <motion.div 
+                <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }}
                   transition={{ delay: index * 0.05 }}
                   whileHover={{ scale: 1.02, y: -4 }}
-                  className={`bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 p-6 ${
-                    !product.isEnabled ? 'opacity-60' : ''
-                  }`}
+                  className={`bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 p-6 ${!product.isEnabled ? 'opacity-60' : ''
+                    }`}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -999,7 +996,7 @@ export default function ProductsPage() {
                             <Edit size={16} className="mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => openDeleteDialog(product)}
                             className="text-red-600"
                           >
@@ -1155,8 +1152,8 @@ export default function ProductsPage() {
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
                 {!isCustomCategory ? (
-                  <Select 
-                    value={formData.category} 
+                  <Select
+                    value={formData.category}
                     onValueChange={(val) => {
                       if (val === '__custom__') {
                         setIsCustomCategory(true);
@@ -1191,9 +1188,9 @@ export default function ProductsPage() {
                     <Button type="button" onClick={addCustomCategory} size="sm" className="bg-orange-600 hover:bg-orange-700">
                       Add
                     </Button>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setIsCustomCategory(false);
@@ -1252,7 +1249,7 @@ export default function ProductsPage() {
               <Button variant="outline" onClick={() => setIsNewProductOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleSave}
                 disabled={!formData.name || !formData.price || !formData.category}
                 className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
@@ -1329,7 +1326,7 @@ export default function ProductsPage() {
                     <div className="bg-white/80 rounded-xl p-3 mb-4 border border-blue-100">
                       <p className="text-xs text-blue-700 font-medium">💡 Pro Tip: In Excel, select header row → Home → Fill Color → Orange for attractive table look!</p>
                     </div>
-                    <Button 
+                    <Button
                       onClick={downloadCSVTemplate}
                       className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 gap-2 shadow-md"
                     >
@@ -1395,7 +1392,7 @@ export default function ProductsPage() {
                     <p className="text-sm text-gray-600 mb-4">
                       Upload your CSV and we'll automatically import products and open POS for billing!
                     </p>
-                    
+
                     <div className="border-3 border-dashed border-emerald-300 rounded-2xl p-6 text-center bg-white/80 hover:bg-emerald-50 transition-all cursor-pointer group">
                       <input
                         type="file"
@@ -1497,18 +1494,17 @@ export default function ProductsPage() {
                 <div className="flex flex-col">
                   <span>Products Inventory Report</span>
                   <span className="text-sm font-normal text-gray-500 flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      productsReportPeriod === 'today' ? 'bg-blue-100 text-blue-700' :
-                      productsReportPeriod === 'week' ? 'bg-green-100 text-green-700' :
-                      productsReportPeriod === 'month' ? 'bg-purple-100 text-purple-700' :
-                      productsReportPeriod === 'year' ? 'bg-amber-100 text-amber-700' :
-                      'bg-pink-100 text-pink-700'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${productsReportPeriod === 'today' ? 'bg-blue-100 text-blue-700' :
+                        productsReportPeriod === 'week' ? 'bg-green-100 text-green-700' :
+                          productsReportPeriod === 'month' ? 'bg-purple-100 text-purple-700' :
+                            productsReportPeriod === 'year' ? 'bg-amber-100 text-amber-700' :
+                              'bg-pink-100 text-pink-700'
+                      }`}>
                       {productsReportPeriod === 'today' ? "Today's Report" :
-                       productsReportPeriod === 'week' ? 'Weekly Report' :
-                       productsReportPeriod === 'month' ? 'Monthly Report' :
-                       productsReportPeriod === 'year' ? 'Yearly Report' :
-                       'Custom Range'}
+                        productsReportPeriod === 'week' ? 'Weekly Report' :
+                          productsReportPeriod === 'month' ? 'Monthly Report' :
+                            productsReportPeriod === 'year' ? 'Yearly Report' :
+                              'Custom Range'}
                     </span>
                   </span>
                 </div>
