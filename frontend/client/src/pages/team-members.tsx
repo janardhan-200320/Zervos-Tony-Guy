@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, Mail, Phone, Calendar, MoreVertical, UserPlus, Briefcase, MapPin, Clock, Shield, CheckCircle2, User, Edit, FileText, CreditCard, Upload, Camera, X } from 'lucide-react';
+import { Plus, Users, Mail, Phone, Calendar, MoreVertical, UserPlus, Briefcase, MapPin, Clock, Shield, CheckCircle2, User, Edit, FileText, CreditCard, Upload, Camera, X, MessageCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -469,6 +469,37 @@ export default function TeamMembersPage() {
     } catch {}
   };
 
+  const handleSendWhatsApp = (member: TeamMember) => {
+    if (!member.phone) {
+      alert('Phone number is missing for this member.');
+      return;
+    }
+
+    // Clean phone number: remove spaces, dashes, parentheses
+    const cleanPhone = member.phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Ensure it has country code if missing (assuming default +91 for India if not present, adjust as needed)
+    // But for now, we'll use what's there. 
+    // Ideally, we should validate/format this better, but based on request, we just need to send a message.
+    
+    const message = `Halo ${member.name},
+
+Here are your work details:
+- Role: ${member.role}
+- Department: ${member.department || 'N/A'}
+- Availability: ${member.availability}
+- Work Assigned: ${member.workAssigned || 'N/A'}
+- Location: ${member.location || 'N/A'}
+
+Please confirm receipt.
+Zervos Team`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+
   const teamMemberLabel = 'Staff';
   const teamMemberSingular = 'Staff';
 
@@ -570,6 +601,10 @@ export default function TeamMembersPage() {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenEdit(member)}>
                         Edit Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleSendWhatsApp(member)}>
+                        <MessageCircle size={16} className="mr-2" />
+                        Send WhatsApp Confirmation
                       </DropdownMenuItem>
                       <DropdownMenuItem className="text-red-600" onClick={() => handleRemoveMember(member)}>
                         Remove Member
