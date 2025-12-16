@@ -12,6 +12,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
+import { FeatureGate } from '@/components/FeatureGate';
 
 interface TeamMember {
   id: string;
@@ -331,7 +332,8 @@ export default function TeamReportsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <FeatureGate feature="hrms" requiredPlan="elite">
+        <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
@@ -967,6 +969,7 @@ export default function TeamReportsPage() {
           </TabsContent>
         </Tabs>
       </div>
+      </FeatureGate>
     </DashboardLayout>
   );
 }

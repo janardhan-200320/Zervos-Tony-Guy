@@ -36,7 +36,6 @@ import SalespersonsPage from "@/pages/salespersons";
 import ServicesPage from "@/pages/services";
 import StaffKPIPage from '@/pages/staff-kpi';
 import StaffTipsPage from '@/pages/staff-tips';
-import SubscriptionPage from "@/pages/Subscription";
 import SubscriptionPlansPage from '@/pages/subscription-plans';
 import Success from "@/pages/success";
 import TeamAttendancePage from "@/pages/team-attendance";
@@ -124,7 +123,6 @@ function Router() {
   <Route path="/dashboard/staff-tips">{() => <ProtectedRoute component={StaffTipsPage} />}</Route>
       <Route path="/dashboard/account">{() => <ProtectedRoute component={AccountPage} />}</Route>
       <Route path="/dashboard/account">{() => <ProtectedRoute component={AccountPage} />}</Route>
-      <Route path="/dashboard/subscription">{() => <ProtectedRoute component={SubscriptionPage} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

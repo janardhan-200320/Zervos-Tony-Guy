@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from '@/hooks/use-toast';
+import { InlineFeatureGate } from '@/components/FeatureGate';
 
 interface Product {
   id: string;
@@ -867,37 +868,39 @@ export default function ProductsPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
-                  <BarChart3 size={18} />
-                  Reports
-                  <ChevronDown size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem onClick={() => { setProductsReportPeriod('today'); setIsReportsOpen(true); }}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Today's Report
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setProductsReportPeriod('week'); setIsReportsOpen(true); }}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Weekly Report
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setProductsReportPeriod('month'); setIsReportsOpen(true); }}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Monthly Report
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setProductsReportPeriod('year'); setIsReportsOpen(true); }}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Yearly Report
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setProductsReportPeriod('custom'); setIsReportsOpen(true); }}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Custom Range
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <InlineFeatureGate feature="inventoryManagement" requiredPlan="elite">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                    <BarChart3 size={18} />
+                    Reports
+                    <ChevronDown size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('today'); setIsReportsOpen(true); }}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Today's Report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('week'); setIsReportsOpen(true); }}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Weekly Report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('month'); setIsReportsOpen(true); }}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Monthly Report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('year'); setIsReportsOpen(true); }}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Yearly Report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setProductsReportPeriod('custom'); setIsReportsOpen(true); }}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Custom Range
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </InlineFeatureGate>
             <Button onClick={() => setIsBulkImportOpen(true)} variant="outline" className="gap-2 border-green-300 text-green-700 hover:bg-green-50">
               <Upload size={18} />
               Import Bulk

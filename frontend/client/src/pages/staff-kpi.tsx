@@ -43,6 +43,7 @@ import {
   AlertTriangle,
   Receipt,
   History,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { whatsappService } from '@/lib/whatsapp-service';
 
 interface StaffMember {
   id: string;
@@ -1644,15 +1646,84 @@ export default function StaffKPIPage() {
                               <span>Salary: {formatPrice(calculateNetSalary(salary))}</span>
                             </div>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewStaffDetails(member.name)}
-                            className="w-full text-xs"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            View Full Details
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewStaffDetails(member.name)}
+                              className="flex-1 text-xs"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View Full Details
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                if (!member.phone) {
+                                  toast({
+                                    title: 'Phone Number Missing',
+                                    description: 'Staff phone number is required to send WhatsApp message',
+                                    variant: 'destructive'
+                                  });
+                                  return;
+                                }
+                                
+                                const businessName = localStorage.getItem('zervos_company') 
+                                  ? JSON.parse(localStorage.getItem('zervos_company')!).name 
+                                  : 'Zervos';
+                                
+                                let message = `📊 *Performance & Salary Details*\n\nHi ${member.name},\n\nHere are your performance details for the selected period:\n\n`;
+                                
+                                if (kpi) {
+                                  message += `🎯 *Performance Metrics:*\n💰 *Total Revenue:* ${formatPrice(kpi.totalRevenue)}\n👥 *Customers Served:* ${kpi.totalCustomers}\n✅ *Services Completed:* ${kpi.totalServices}\n🏆 *Commission Earned:* ${formatPrice(kpi.totalCommission)}\n🎁 *Incentives:* ${formatPrice(kpi.totalIncentives)}\n\n`;
+                                }
+                                
+                                if (salary) {
+                                  const netSalary = calculateNetSalary(salary);
+                                  message += `💵 *Salary Breakdown:*\n💳 *Base Salary:* ${formatPrice(salary.baseSalary)}\n`;
+                                  
+                                  if (salary.allowances && salary.allowances > 0) {
+                                    message += `🎁 *Allowances:* ${formatPrice(salary.allowances)}\n`;
+                                  }
+                                  
+                                  if (salary.deductions && salary.deductions > 0) {
+                                    message += `⛔ *Deductions:* -${formatPrice(salary.deductions)}\n`;
+                                  }
+                                  
+                                  message += `🟢 *Net Salary:* ${formatPrice(netSalary)}\n`;
+                                  
+                                  if (salary.paymentDate) {
+                                    message += `📅 *Payment Date:* ${new Date(salary.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}\n`;
+                                  }
+                                }
+                                
+                                message += `\nKeep up the great work!\n\nBest regards,\n${businessName}`;
+                                
+                                const result = await whatsappService.sendMessage(
+                                  member.phone,
+                                  message
+                                );
+                                
+                                if (result.success) {
+                                  toast({
+                                    title: '✅ WhatsApp Sent',
+                                    description: `Salary details sent to ${member.name}`,
+                                  });
+                                } else {
+                                  toast({
+                                    title: 'Failed to Send',
+                                    description: result.message,
+                                    variant: 'destructive'
+                                  });
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-700"
+                              title="Send WhatsApp Details"
+                            >
+                              <Send className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

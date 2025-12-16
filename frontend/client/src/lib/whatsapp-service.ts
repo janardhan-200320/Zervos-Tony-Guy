@@ -233,6 +233,72 @@ class WhatsAppService {
     }
   }
 
+  async sendMessage(
+    phoneNumber: string,
+    message: string,
+    workspaceId: string = 'default'
+  ): Promise<SendResult> {
+    try {
+      const config = this.getConfig(workspaceId);
+      
+      if (!config || !config.enabled) {
+        return {
+          success: false,
+          message: 'WhatsApp integration is not enabled',
+          error: 'INTEGRATION_DISABLED'
+        };
+      }
+
+      // Validate phone number
+      const validation = this.validatePhoneNumber(phoneNumber);
+      if (!validation.valid) {
+        return {
+          success: false,
+          message: validation.message || 'Invalid phone number',
+          error: 'INVALID_PHONE'
+        };
+      }
+
+      // Format phone number
+      const chatId = this.formatPhoneNumber(phoneNumber);
+
+      // Send message via WhatsApp API
+      const response = await fetch(`${config.apiUrl}/api/sendText`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey && { 'X-Api-Key': config.apiKey })
+        },
+        body: JSON.stringify({
+          session: config.sessionName,
+          chatId: chatId,
+          text: message
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to send message');
+      }
+
+      const result = await response.json();
+
+      return {
+        success: true,
+        message: 'Message sent successfully via WhatsApp',
+        messageId: result.id || result.messageId
+      };
+
+    } catch (error: any) {
+      console.error('WhatsApp send message error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to send WhatsApp message',
+        error: error.code || 'SEND_FAILED'
+      };
+    }
+  }
+
   async sendTestMessage(
     phoneNumber: string,
     workspaceId: string = 'default'

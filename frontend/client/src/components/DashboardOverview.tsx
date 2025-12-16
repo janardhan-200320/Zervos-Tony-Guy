@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import StatsCard, { StatsGrid } from './StatsCard';
 import AnimatedButton from './AnimatedButton';
+import { SubscriptionStatus } from './SubscriptionStatus';
 
 interface RecentActivity {
   id: string;
@@ -162,6 +163,15 @@ const DashboardOverview = () => {
           delay={0.15}
         />
       </StatsGrid>
+
+      {/* Subscription Status */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <SubscriptionStatus />
+      </motion.div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="relative overflow-hidden border-white/40 bg-white/80 backdrop-blur lg:col-span-2">

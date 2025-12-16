@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Plus, Minus, Search, Filter, CalendarX, DollarSign, CreditCard, Smartphone, Banknote, Edit2, Trash2, Clock, CheckCircle2, XCircle, MoreVertical, Pause, RefreshCw, Eye, Mail, Phone, User, MapPin, MessageSquare, QrCode, Copy, Video, PhoneCall, Building2, Link2, BarChart3, PieChart, TrendingUp, Download, Globe, Wifi, WifiOff, FileText, FileSpreadsheet, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Minus, Search, Filter, CalendarX, DollarSign, CreditCard, Smartphone, Banknote, Edit2, Trash2, Clock, CheckCircle2, XCircle, MoreVertical, Pause, RefreshCw, Eye, Mail, Phone, User, MapPin, MessageSquare, QrCode, Copy, Video, PhoneCall, Building2, Link2, BarChart3, PieChart, TrendingUp, Download, Globe, Wifi, WifiOff, FileText, FileSpreadsheet, CalendarDays, Send } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { useNotificationTriggers } from '@/lib/notificationHelpers';
+import { whatsappService } from '@/lib/whatsapp-service';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import jsPDF from 'jspdf';
+import InnovativeTimeSlotSelector from '@/components/InnovativeTimeSlotSelector';
+import InnovativeCalendar from '@/components/InnovativeCalendar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +91,12 @@ export default function AppointmentsNew() {
   const [isCustomPlatform, setIsCustomPlatform] = useState(false);
   const [customPlatform, setCustomPlatform] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<{id: string; name: string; price: string; quantity: number}[]>([]);
+  const [selectedServices, setSelectedServices] = useState<{id: string; name: string; price: string; duration: string}[]>([]);
+  const [showTimeSlots, setShowTimeSlots] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [customerHistory, setCustomerHistory] = useState<{found: boolean; name: string; email: string; pastAppointments: number; lastVisit: string} | null>(null);
+  const [businessHours, setBusinessHours] = useState<{start: string; end: string} | null>(null);
+  const [availableDays, setAvailableDays] = useState<string[]>([]);
 
   const teamMemberOptions = useMemo(
     () =>
@@ -171,7 +180,7 @@ export default function AppointmentsNew() {
     paymentStatus: 'unpaid',
     notes: '',
     // New fields
-    appointmentMode: 'offline' as 'online' | 'offline' | 'on-call',
+    appointmentMode: 'on-call' as 'online' | 'offline' | 'on-call',
     meetingPlatform: '',
     meetingLink: '',
     callNumber: '',
@@ -223,6 +232,26 @@ export default function AppointmentsNew() {
     // Load services and products
     loadServices();
     loadProducts();
+
+    // Load business hours and available days
+    try {
+      const currentWorkspace = localStorage.getItem('currentWorkspace') || 'default';
+      const companyData = localStorage.getItem(`zervos_company_${currentWorkspace}`);
+      if (companyData) {
+        const company = JSON.parse(companyData);
+        if (company.availableTimeStart && company.availableTimeEnd) {
+          setBusinessHours({
+            start: company.availableTimeStart,
+            end: company.availableTimeEnd
+          });
+        }
+        if (company.availableDays && Array.isArray(company.availableDays)) {
+          setAvailableDays(company.availableDays);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading business hours:', error);
+    }
 
     // Listen for services and products updates
     const handleServicesUpdate = () => loadServices();
@@ -1501,6 +1530,55 @@ export default function AppointmentsNew() {
                       
                       <DropdownMenuSeparator />
                       
+                      <DropdownMenuItem 
+                        onClick={async () => {
+                          if (!appointment.phone) {
+                            toast({
+                              title: 'Phone Number Missing',
+                              description: 'Customer phone number is required to send WhatsApp confirmation',
+                              variant: 'destructive'
+                            });
+                            return;
+                          }
+                          
+                          const businessName = localStorage.getItem('zervos_company') 
+                            ? JSON.parse(localStorage.getItem('zervos_company')!).name 
+                            : 'Zervos';
+                          
+                          const serviceName = appointment.serviceName || appointment.customService || 'Service';
+                          const appointmentDate = new Date(appointment.date).toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          });
+                          
+                          const message = `✅ *Appointment Confirmed*\n\nHi ${appointment.customerName},\n\nYour appointment has been confirmed!\n\n📅 *Service:* ${serviceName}\n📆 *Date:* ${appointmentDate}\n🕐 *Time:* ${appointment.time}${appointment.assignedStaff ? `\n👤 *Staff:* ${appointment.assignedStaff}` : ''}${appointment.location ? `\n📍 *Location:* ${appointment.location}` : ''}${appointment.appointmentMode === 'online' && appointment.meetingLink ? `\n🔗 *Meeting Link:* ${appointment.meetingLink}` : ''}${appointment.appointmentMode === 'on-call' && appointment.callNumber ? `\n📞 *Call Number:* ${appointment.callNumber}` : ''}\n\nThank you for choosing ${businessName}!\n\nIf you need to reschedule or have any questions, please contact us.`;
+                          
+                          const result = await whatsappService.sendMessage(
+                            appointment.phone,
+                            message
+                          );
+                          
+                          if (result.success) {
+                            toast({
+                              title: '✅ WhatsApp Sent',
+                              description: `Appointment confirmation sent to ${appointment.customerName}`,
+                            });
+                          } else {
+                            toast({
+                              title: 'Failed to Send',
+                              description: result.message,
+                              variant: 'destructive'
+                            });
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Send className="mr-2 h-4 w-4 text-green-600" />
+                        <span>Send WhatsApp Confirmation</span>
+                      </DropdownMenuItem>
+                      
                       {appointment.appointmentStatus !== 'cancelled' && (
                         <DropdownMenuItem 
                           onClick={() => handleStatusChange(appointment.id, 'cancelled')}
@@ -1619,8 +1697,8 @@ export default function AppointmentsNew() {
               onClick={() => setModeFilter('online')}
               className={modeFilter === 'online' ? 'bg-purple-600 hover:bg-purple-700' : 'text-purple-600 border-purple-200 hover:bg-purple-50'}
             >
-              <Video className="h-4 w-4 mr-1" />
-              Online
+              <Wifi className="h-4 w-4 mr-1" />
+              Online Bookings
             </Button>
             <Button
               variant={modeFilter === 'offline' ? 'default' : 'outline'}
@@ -1653,9 +1731,6 @@ export default function AppointmentsNew() {
               <TabsTrigger value="past" className="px-6">
                 Past
               </TabsTrigger>
-              <TabsTrigger value="custom" className="px-6">
-                Custom Date
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming">
@@ -1664,26 +1739,6 @@ export default function AppointmentsNew() {
 
             <TabsContent value="past">
               {renderAppointmentsList(pastAppointments)}
-            </TabsContent>
-
-            <TabsContent value="custom">
-              <div className="flex flex-col items-center justify-center py-20">
-                <div className="relative mb-6">
-                  <div className="w-40 h-40 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-                    <div className="w-32 h-32 bg-white rounded-2xl shadow-lg flex items-center justify-center">
-                      <Calendar size={48} className="text-indigo-600" />
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a custom date range</h3>
-                <p className="text-gray-500 mb-6">Choose dates to view appointments</p>
-                <div className="flex gap-3">
-                  <Input type="date" className="w-40" />
-                  <span className="text-gray-500 flex items-center">to</span>
-                  <Input type="date" className="w-40" />
-                  <Button variant="outline">Filter</Button>
-                </div>
-              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -1720,11 +1775,100 @@ export default function AppointmentsNew() {
               {/* Phone and Assigned Staff */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Phone *
+                  </Label>
                   <Input
                     value={newAppointment.phone}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, phone: e.target.value })}
+                    onChange={(e) => {
+                      const phone = e.target.value;
+                      setNewAppointment({ ...newAppointment, phone });
+                      
+                      // Auto-fill customer details if phone exists
+                      if (phone.length >= 10) {
+                        try {
+                          // Search in appointments for existing customer
+                          const existingAppointment = appointments.find((a: any) => a.phone === phone);
+                          
+                          if (existingAppointment) {
+                            // Count past appointments
+                            const pastAppts = appointments.filter((a: any) => 
+                              a.phone === phone && 
+                              (a.status === 'completed' || a.appointmentStatus === 'completed')
+                            );
+                            
+                            // Find last visit
+                            const sortedAppts = appointments
+                              .filter((a: any) => a.phone === phone)
+                              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                            
+                            const lastVisit = sortedAppts[0]?.date || 'N/A';
+                            
+                            setNewAppointment(prev => ({
+                              ...prev,
+                              phone,
+                              customerName: existingAppointment.customerName || prev.customerName,
+                              email: existingAppointment.email || prev.email,
+                            }));
+                            
+                            setCustomerHistory({
+                              found: true,
+                              name: existingAppointment.customerName,
+                              email: existingAppointment.email,
+                              pastAppointments: pastAppts.length,
+                              lastVisit: lastVisit
+                            });
+                            
+                            toast({
+                              title: '✅ Existing Customer Found',
+                              description: `${existingAppointment.customerName} - ${pastAppts.length} past appointment(s)`,
+                            });
+                          } else {
+                            setCustomerHistory(null);
+                          }
+                        } catch (error) {
+                          console.error('Error auto-filling customer:', error);
+                          setCustomerHistory(null);
+                        }
+                      } else {
+                        setCustomerHistory(null);
+                      }
+                    }}
+                    placeholder="Enter phone number"
+                    className="border-2 focus:border-indigo-500"
                   />
+                  {customerHistory?.found && (
+                    <div className="mt-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-green-900">Existing Customer</p>
+                          <div className="mt-1 space-y-1 text-xs text-green-700">
+                            <p className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              <span className="font-medium">{customerHistory.name}</span>
+                            </p>
+                            {customerHistory.email && (
+                              <p className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {customerHistory.email}
+                              </p>
+                            )}
+                            <p className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span className="font-medium">{customerHistory.pastAppointments}</span> past appointment(s)
+                            </p>
+                            <p className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Last visit: {new Date(customerHistory.lastVisit).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">📞 Auto-fills existing customer details</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Assigned Staff</Label>
@@ -1751,69 +1895,145 @@ export default function AppointmentsNew() {
                 </div>
               </div>
 
-              {/* Service Selection */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Service *</Label>
+              {/* Service Selection - Multi-Select */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <span className="text-2xl">💆</span>
+                    Services *
+                  </Label>
+                  {selectedServices.length > 0 && (
+                    <span className="text-xs text-gray-500 bg-indigo-50 px-2 py-1 rounded-full">
+                      {selectedServices.length} selected
+                    </span>
+                  )}
+                </div>
+                
+                {/* Selected Services Display */}
+                {selectedServices.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200">
+                    {selectedServices.map((service) => (
+                      <motion.div
+                        key={service.id}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-indigo-200 shadow-sm"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">{service.name}</p>
+                          <p className="text-xs text-gray-500">{service.duration} • {getCurrencySymbol('INR')}{service.price}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedServices(selectedServices.filter(s => s.id !== service.id));
+                            // If removing the primary service, clear it
+                            if (newAppointment.serviceName === service.name) {
+                              const remaining = selectedServices.filter(s => s.id !== service.id);
+                              setNewAppointment({ ...newAppointment, serviceName: remaining[0]?.name || '' });
+                            }
+                          }}
+                          className="p-1 hover:bg-red-50 rounded-full transition-colors"
+                        >
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Service Selector */}
+                <div className="grid grid-cols-2 gap-4">
                   <Select
-                    value={isCustomService ? 'custom' : newAppointment.serviceName || undefined}
-                    onValueChange={(v) => {
-                      if (v === 'custom') {
+                    value=""
+                    onValueChange={(value) => {
+                      if (value === 'custom') {
                         setIsCustomService(true);
-                        setNewAppointment({ ...newAppointment, serviceName: '' });
-                      } else {
-                        setIsCustomService(false);
-                        const nextValue = v.trim();
-                        setNewAppointment({ ...newAppointment, serviceName: nextValue, customService: '' });
+                        setNewAppointment({ ...newAppointment, serviceName: '', customService: '' });
+                      } else if (value !== 'no-services-available') {
+                        const service = serviceOptions.find(s => s.name === value);
+                        if (service && !selectedServices.find(s => s.id === service.id)) {
+                          setSelectedServices([...selectedServices, {
+                            id: service.id,
+                            name: service.name,
+                            price: service.price,
+                            duration: service.duration || '30 mins'
+                          }]);
+                          // Set first service as primary
+                          if (selectedServices.length === 0) {
+                            setNewAppointment({ ...newAppointment, serviceName: value });
+                          }
+                        }
                       }
                     }}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select service" />
+                    <SelectTrigger className="h-12 border-2 border-dashed border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all">
+                      <SelectValue placeholder="➕ Add Service">
+                        <span className="text-indigo-600 font-medium">➕ Add Service</span>
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {serviceOptions.length > 0 ? (
-                        serviceOptions.map((service) => (
-                          <SelectItem key={service.id} value={service.name}>
-                            {service.name} {service.currency === 'INR' ? `- ₹${service.price}` : `- ${service.currency}${service.price}`}
-                          </SelectItem>
-                        ))
+                        serviceOptions.map((service) => {
+                          const isSelected = selectedServices.find(s => s.id === service.id);
+                          return (
+                            <SelectItem 
+                              key={service.id} 
+                              value={service.name}
+                              disabled={!!isSelected}
+                              className={isSelected ? 'opacity-50' : ''}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isSelected && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                <span>{service.name}</span>
+                                <span className="text-gray-500">•</span>
+                                <span className="text-xs">{service.currency === 'INR' ? `₹${service.price}` : `${service.currency}${service.price}`}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })
                       ) : (
                         <SelectItem value="no-services-available" disabled>No services available</SelectItem>
                       )}
-                      <SelectItem value="custom">✏️ Custom Service</SelectItem>
+                      <SelectItem value="custom">
+                        <div className="flex items-center gap-2">
+                          <Edit2 className="h-4 w-4" />
+                          <span>✏️ Custom Service</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {isCustomService && (
+                    <div className="space-y-2">
+                      <Label>Custom Service Name *</Label>
+                      <Input
+                        value={newAppointment.customService}
+                        onChange={(e) => setNewAppointment({ ...newAppointment, customService: e.target.value })}
+                        placeholder="Enter custom service name"
+                      />
+                    </div>
+                  )}
+                  {!isCustomService && (
+                    <div className="space-y-2">
+                      <Label>Appointment Status *</Label>
+                      <Select 
+                        value={newAppointment.appointmentStatus}
+                        onValueChange={(v) => setNewAppointment({ ...newAppointment, appointmentStatus: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
-                {isCustomService && (
-                  <div className="space-y-2">
-                    <Label>Custom Service Name *</Label>
-                    <Input
-                      value={newAppointment.customService}
-                      onChange={(e) => setNewAppointment({ ...newAppointment, customService: e.target.value })}
-                      placeholder="Enter custom service name"
-                    />
-                  </div>
-                )}
-                {!isCustomService && (
-                  <div className="space-y-2">
-                    <Label>Appointment Status *</Label>
-                    <Select 
-                      value={newAppointment.appointmentStatus}
-                      onValueChange={(v) => setNewAppointment({ ...newAppointment, appointmentStatus: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
               </div>
 
               {/* Appointment Status when custom service */}
@@ -1843,30 +2063,10 @@ export default function AppointmentsNew() {
                   <Globe className="h-4 w-4 text-indigo-600" />
                   Appointment Mode
                 </h3>
+                <div className="bg-gradient-to-r from-purple-50 to-orange-50 p-3 rounded-lg mb-4">
+                  <p className="text-xs text-gray-600 mb-2">📌 <strong>On-Call:</strong> Customer called to book | <strong>Online Bookings:</strong> Booked via booking link</p>
+                </div>
                 <div className="flex gap-3 mb-4">
-                  <Button
-                    type="button"
-                    variant={newAppointment.appointmentMode === 'offline' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setNewAppointment({ ...newAppointment, appointmentMode: 'offline', meetingPlatform: '', meetingLink: '', callNumber: '' });
-                      setIsCustomPlatform(false);
-                    }}
-                    className={newAppointment.appointmentMode === 'offline' ? 'bg-teal-600 hover:bg-teal-700' : 'text-teal-600 border-teal-200 hover:bg-teal-50'}
-                  >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    Offline (In-Person)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={newAppointment.appointmentMode === 'online' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setNewAppointment({ ...newAppointment, appointmentMode: 'online', callNumber: '' });
-                    }}
-                    className={newAppointment.appointmentMode === 'online' ? 'bg-purple-600 hover:bg-purple-700' : 'text-purple-600 border-purple-200 hover:bg-purple-50'}
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    Online (Virtual)
-                  </Button>
                   <Button
                     type="button"
                     variant={newAppointment.appointmentMode === 'on-call' ? 'default' : 'outline'}
@@ -1879,61 +2079,40 @@ export default function AppointmentsNew() {
                     <PhoneCall className="h-4 w-4 mr-2" />
                     On-Call
                   </Button>
+                  <Button
+                    type="button"
+                    variant={newAppointment.appointmentMode === 'online' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setNewAppointment({ ...newAppointment, appointmentMode: 'online', callNumber: '' });
+                    }}
+                    className={newAppointment.appointmentMode === 'online' ? 'bg-purple-600 hover:bg-purple-700' : 'text-purple-600 border-purple-200 hover:bg-purple-50'}
+                  >
+                    <Wifi className="h-4 w-4 mr-2" />
+                    Online Bookings
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={newAppointment.appointmentMode === 'offline' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setNewAppointment({ ...newAppointment, appointmentMode: 'offline', meetingPlatform: '', meetingLink: '', callNumber: '' });
+                      setIsCustomPlatform(false);
+                    }}
+                    className={newAppointment.appointmentMode === 'offline' ? 'bg-teal-600 hover:bg-teal-700' : 'text-teal-600 border-teal-200 hover:bg-teal-50'}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Offline
+                  </Button>
                 </div>
 
                 {/* Online Mode Fields */}
                 {newAppointment.appointmentMode === 'online' && (
                   <div className="space-y-4 bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Meeting Platform *</Label>
-                        <Select 
-                          value={isCustomPlatform ? 'custom' : newAppointment.meetingPlatform}
-                          onValueChange={(v) => {
-                            if (v === 'custom') {
-                              setIsCustomPlatform(true);
-                              setNewAppointment({ ...newAppointment, meetingPlatform: '' });
-                            } else {
-                              setIsCustomPlatform(false);
-                              setCustomPlatform('');
-                              setNewAppointment({ ...newAppointment, meetingPlatform: v });
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select platform" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="zoom">📹 Zoom</SelectItem>
-                            <SelectItem value="google-meet">🎥 Google Meet</SelectItem>
-                            <SelectItem value="microsoft-teams">👥 Microsoft Teams</SelectItem>
-                            <SelectItem value="whatsapp">💬 WhatsApp Video</SelectItem>
-                            <SelectItem value="skype">📞 Skype</SelectItem>
-                            <SelectItem value="custom">✏️ Custom Platform</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    <div className="flex items-start gap-2 p-3 bg-white rounded-md border border-purple-200">
+                      <Wifi className="h-5 w-5 text-purple-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-purple-900">Online Booking</p>
+                        <p className="text-xs text-purple-700 mt-1">Customer booked this appointment through the online booking link</p>
                       </div>
-                      {isCustomPlatform && (
-                        <div className="space-y-2">
-                          <Label>Custom Platform Name</Label>
-                          <Input
-                            value={customPlatform}
-                            onChange={(e) => {
-                              setCustomPlatform(e.target.value);
-                              setNewAppointment({ ...newAppointment, meetingPlatform: e.target.value });
-                            }}
-                            placeholder="Enter platform name"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Meeting Link *</Label>
-                      <Input
-                        value={newAppointment.meetingLink}
-                        onChange={(e) => setNewAppointment({ ...newAppointment, meetingLink: e.target.value })}
-                        placeholder="https://zoom.us/j/123456789 or meeting URL"
-                      />
                     </div>
                   </div>
                 )}
@@ -1941,43 +2120,65 @@ export default function AppointmentsNew() {
                 {/* On-Call Mode Fields */}
                 {newAppointment.appointmentMode === 'on-call' && (
                   <div className="space-y-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
-                    <div className="space-y-2">
-                      <Label>Phone Number for Call *</Label>
-                      <Input
-                        value={newAppointment.callNumber}
-                        onChange={(e) => setNewAppointment({ ...newAppointment, callNumber: e.target.value })}
-                        placeholder="+1 234 567 8900"
-                      />
+                    <div className="flex items-start gap-2 mb-3 p-3 bg-white rounded-md border border-orange-200">
+                      <PhoneCall className="h-5 w-5 text-orange-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-orange-900">On-Call Appointment</p>
+                        <p className="text-xs text-orange-700 mt-1">Customer called the salon/spa directly to book this appointment</p>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Offline Mode - No additional fields needed */}
+                {/* Offline Mode - In-Person */}
                 {newAppointment.appointmentMode === 'offline' && (
                   <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
-                    <p className="text-sm text-teal-700">In-person appointment selected</p>
+                    <div className="flex items-start gap-2 p-3 bg-white rounded-md border border-teal-200">
+                      <Building2 className="h-5 w-5 text-teal-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-teal-900">Offline Appointment</p>
+                        <p className="text-xs text-teal-700 mt-1">In-person visit to the location</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Date and Time */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={newAppointment.date}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
+              {/* Date and Time with Enhanced Components */}
+              <div className="space-y-6">
+                {/* Calendar for Date Selection */}
+                <InnovativeCalendar
+                  selectedDate={newAppointment.date}
+                  onDateSelect={(date) => setNewAppointment({ ...newAppointment, date })}
+                  bookedDates={appointments.map(apt => apt.date)}
+                  availableDays={availableDays}
+                  appointments={appointments.map(apt => ({ 
+                    appointmentDate: apt.date, 
+                    status: apt.status 
+                  }))}
+                />
+
+                {/* Time Slot Selector */}
+                {newAppointment.date && (
+                  <InnovativeTimeSlotSelector
+                    selectedTime={newAppointment.time}
+                    selectedDate={newAppointment.date}
+                    onTimeSelect={(time) => setNewAppointment({ ...newAppointment, time })}
+                    bookedSlots={appointments
+                      .filter(apt => apt.date === newAppointment.date)
+                      .map(apt => apt.time)
+                    }
+                    serviceDuration={
+                      selectedServices.length > 0 
+                        ? selectedServices.reduce((total, service) => {
+                            const duration = parseInt(service.duration) || 30;
+                            return total + duration;
+                          }, 0)
+                        : 30
+                    }
+                    businessHours={businessHours || undefined}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Time *</Label>
-                  <Input
-                    type="time"
-                    value={newAppointment.time}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
-                  />
-                </div>
+                )}
               </div>
 
               {/* Payment Information */}

@@ -587,25 +587,24 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
           <div className="flex items-center gap-3">
             <motion.div
               layout
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 shadow-lg"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg p-1.5"
             >
               {orgLogo ? (
-                <img src={orgLogo} alt="Logo" className="h-10 w-10 rounded-xl object-cover" />
+                <img src={orgLogo} alt="Logo" className="h-full w-full rounded-lg object-cover" />
               ) : (
-                <Building2 size={20} className="text-white" />
+                <img src="/favicon.png" alt="Zervos" className="h-full w-full object-contain" />
               )}
             </motion.div>
             {expanded && (
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-white">
-                  <Sparkles size={14} className="text-brand-400" />
-                  <span>Zervos</span>
+              <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 rounded-xl px-4 py-3 shadow-[0_8px_16px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.2)] border border-slate-300/50 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
+                <div className="flex items-center justify-center relative z-10">
+                  <img 
+                    src="/zervos-logo.png" 
+                    alt="Zervos" 
+                    className="h-8 w-auto object-contain drop-shadow-sm"
+                  />
                 </div>
-                {company ? (
-                  <p className="text-xs text-slate-400">{company.name}</p>
-                ) : (
-                  <p className="text-xs text-slate-400">bharath</p>
-                )}
               </div>
             )}
           </div>
@@ -657,16 +656,22 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
           >
             <div className="flex items-center justify-between px-5 py-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-purple-500">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg p-1.5">
                   {orgLogo ? (
-                    <img src={orgLogo} alt="Logo" className="h-10 w-10 rounded-xl object-cover" />
+                    <img src={orgLogo} alt="Logo" className="h-full w-full rounded-lg object-cover" />
                   ) : (
-                    <Building2 size={20} className="text-white" />
+                    <img src="/favicon.png" alt="Zervos" className="h-full w-full object-contain" />
                   )}
                 </div>
-                <div className="text-white">
-                  <p className="text-sm font-semibold">Zervos</p>
-                  {company && <p className="text-xs text-slate-400">{company.name}</p>}
+                <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 rounded-xl px-4 py-3 shadow-[0_8px_16px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.2)] border border-slate-300/50 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
+                  <div className="flex items-center justify-center relative z-10">
+                    <img 
+                      src="/zervos-logo.png" 
+                      alt="Zervos" 
+                      className="h-8 w-auto object-contain drop-shadow-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -743,7 +748,7 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <Link href="/dashboard/subscription-plans">
-                <a className="group hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:scale-105 hover:shadow-lg sm:inline-flex">
+                <button className="group hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:scale-105 hover:shadow-lg sm:inline-flex">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
@@ -760,7 +765,7 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </motion.svg>
-                </a>
+                </button>
               </Link>
               <div className="hidden sm:inline-flex">
                 <TimeSlotsButton />

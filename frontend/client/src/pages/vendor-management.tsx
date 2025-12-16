@@ -25,6 +25,7 @@ import {
   CheckCircle,
   AlertCircle,
   X,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { whatsappService } from '@/lib/whatsapp-service';
 
 interface Vendor {
   id: string;
@@ -647,6 +649,48 @@ export default function VendorManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={async () => {
+                            if (!vendor.phone) {
+                              toast({
+                                title: 'Phone Number Missing',
+                                description: 'Vendor phone number is required to send WhatsApp message',
+                                variant: 'destructive'
+                              });
+                              return;
+                            }
+                            
+                            const businessName = localStorage.getItem('zervos_company') 
+                              ? JSON.parse(localStorage.getItem('zervos_company')!).name 
+                              : 'Zervos';
+                            
+                            const message = `✅ *Vendor Selection Confirmation*\n\nDear ${vendor.name},\n\nWe are pleased to inform you that your company has been selected as our vendor partner!\n\n📋 *Vendor Details:*\n🏢 *Company:* ${vendor.name}\n📦 *Category:* ${vendor.category}${vendor.contactPerson ? `\n👤 *Contact Person:* ${vendor.contactPerson}` : ''}${vendor.email ? `\n📧 *Email:* ${vendor.email}` : ''}${vendor.phone ? `\n📞 *Phone:* ${vendor.phone}` : ''}${vendor.gst ? `\n🆔 *GST:* ${vendor.gst}` : ''}${vendor.paymentTerms ? `\n💳 *Payment Terms:* ${vendor.paymentTerms}` : ''}${vendor.address ? `\n📍 *Address:* ${vendor.address}${vendor.city ? `, ${vendor.city}` : ''}${vendor.state ? `, ${vendor.state}` : ''}${vendor.pincode ? ` - ${vendor.pincode}` : ''}` : ''}\n\nWe look forward to a long and mutually beneficial business relationship.\n\nBest regards,\n${businessName}`;
+                            
+                            const result = await whatsappService.sendMessage(
+                              vendor.phone,
+                              message
+                            );
+                            
+                            if (result.success) {
+                              toast({
+                                title: '✅ WhatsApp Sent',
+                                description: `Vendor confirmation sent to ${vendor.name}`,
+                              });
+                            } else {
+                              toast({
+                                title: 'Failed to Send',
+                                description: result.message,
+                                variant: 'destructive'
+                              });
+                            }
+                          }}
+                          className="text-green-600 hover:text-green-700"
+                          title="Send WhatsApp Confirmation"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDeleteVendor(vendor.id)}
                           className="text-red-600 hover:text-red-700"
                         >
@@ -750,6 +794,53 @@ export default function VendorManagement() {
                           <div className="flex items-center justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={() => openEditPO(po)}>
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={async () => {
+                                const vendor = vendors.find(v => v.id === po.vendorId);
+                                if (!vendor?.phone) {
+                                  toast({
+                                    title: 'Phone Number Missing',
+                                    description: 'Vendor phone number is required to send WhatsApp message',
+                                    variant: 'destructive'
+                                  });
+                                  return;
+                                }
+                                
+                                const businessName = localStorage.getItem('zervos_company') 
+                                  ? JSON.parse(localStorage.getItem('zervos_company')!).name 
+                                  : 'Zervos';
+                                
+                                const itemsList = po.items
+                                  .map((item, idx) => `${idx + 1}. ${item.name} × ${item.quantity} - ₹${item.price.toFixed(2)}`)
+                                  .join('\n');
+                                
+                                const message = `📦 *Purchase Order Confirmation*\n\nDear ${po.vendorName},\n\nWe are pleased to place the following purchase order with your company:\n\n📋 *Order Details:*\n🆔 *PO Number:* ${po.id}\n📅 *Order Date:* ${new Date(po.orderDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}${po.expectedDelivery ? `\n🚚 *Expected Delivery:* ${new Date(po.expectedDelivery).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}\n📊 *Status:* ${po.status.charAt(0).toUpperCase() + po.status.slice(1)}\n\n📦 *Items:*\n${itemsList}\n\n💰 *Total Amount:* ₹${po.totalAmount.toFixed(2)}${po.notes ? `\n\n📝 *Notes:* ${po.notes}` : ''}\n\nPlease confirm receipt of this order and provide the estimated delivery timeline.\n\nBest regards,\n${businessName}`;
+                                
+                                const result = await whatsappService.sendMessage(
+                                  vendor.phone,
+                                  message
+                                );
+                                
+                                if (result.success) {
+                                  toast({
+                                    title: '✅ WhatsApp Sent',
+                                    description: `Purchase order sent to ${po.vendorName}`,
+                                  });
+                                } else {
+                                  toast({
+                                    title: 'Failed to Send',
+                                    description: result.message,
+                                    variant: 'destructive'
+                                  });
+                                }
+                              }}
+                              className="text-green-600"
+                              title="Send WhatsApp Confirmation"
+                            >
+                              <Send className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"

@@ -3051,16 +3051,56 @@ export default function POSRegister() {
                   </p>
                 </div>
               ) : (
-                filteredAppointments.map((apt) => (
+                filteredAppointments.map((apt) => {
+                  // Find or create service for this appointment
+                  const serviceName = apt.serviceName || apt.customService || 'Appointment Service';
+                  const servicePrice = typeof apt.price === 'number' ? apt.price : (typeof apt.price === 'string' ? parseFloat(apt.price) || 0 : 0);
+                  
+                  return (
                   <motion.div
                     key={apt.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
                     onClick={() => {
-                      setSelectedAppointment(apt);
-                      setAppointmentBillingOpen(true);
+                      // Find or create a service entry for this appointment
+                      let serviceId = services.find(s => s.name === serviceName)?.id;
+                      
+                      if (!serviceId) {
+                        // Create a new service entry if it doesn't exist
+                        const newService = {
+                          id: `apt-service-${apt.id}`,
+                          name: serviceName,
+                          price: servicePrice,
+                          category: 'Appointments',
+                          duration: apt.duration || 60,
+                          active: true,
+                        };
+                        setServices(prev => [...prev, newService]);
+                        serviceId = newService.id;
+                      }
+                      
+                      // Add to cart
+                      addToCart(serviceId);
+                      
+                      // Update appointment payment status
+                      const updatedAppointments = appointments.filter(a => a.id !== apt.id);
+                      setAppointments(updatedAppointments);
+                      
+                      // Update in localStorage
+                      const allApts = JSON.parse(localStorage.getItem('zervos_appointments') || '[]');
+                      const aptIndex = allApts.findIndex((a: any) => a.id === apt.id);
+                      if (aptIndex !== -1) {
+                        allApts[aptIndex].paymentStatus = 'pending';
+                        localStorage.setItem('zervos_appointments', JSON.stringify(allApts));
+                      }
+                      
                       setShowAppointmentsBilling(false);
+                      
+                      toast({
+                        title: '✅ Added to Cart',
+                        description: `${serviceName} for ${apt.customerName || 'Customer'} added to cart`,
+                      });
                     }}
                   >
                     <div className="flex items-start justify-between">
@@ -3120,7 +3160,8 @@ export default function POSRegister() {
                       </div>
                     </div>
                   </motion.div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
