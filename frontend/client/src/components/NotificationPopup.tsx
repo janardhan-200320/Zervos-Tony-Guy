@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { sanitizeText } from '@/lib/sanitize';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Calendar, FileText, ShoppingCart, CheckCircle, X } from 'lucide-react';
+import { Bell, Calendar, CheckCircle, FileText, ShoppingCart, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 type NotificationItem = {
   id: string;
@@ -195,7 +196,7 @@ export default function NotificationPopup() {
                       transition={{ delay: 0.2 }}
                       className="font-semibold text-slate-900 mt-1"
                     >
-                      {notification.title}
+                      {sanitizeText(notification.title)}
                     </motion.h3>
 
                     {notification.body && (
@@ -205,7 +206,7 @@ export default function NotificationPopup() {
                         transition={{ delay: 0.25 }}
                         className="text-sm text-slate-600 mt-1"
                       >
-                        {notification.body}
+                        {sanitizeText(notification.body)}
                       </motion.p>
                     )}
 

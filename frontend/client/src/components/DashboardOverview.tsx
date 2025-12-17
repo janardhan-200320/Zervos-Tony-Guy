@@ -1,18 +1,19 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { sanitizeText } from '@/lib/sanitize';
 import { motion } from 'framer-motion';
 import {
-  Calendar,
-  TrendingUp,
-  Clock,
-  Activity,
-  AlertCircle,
-  User,
-  ArrowUpRight,
-  Sparkles,
-  Star,
+    Activity,
+    AlertCircle,
+    ArrowUpRight,
+    Calendar,
+    Clock,
+    Sparkles,
+    Star,
+    TrendingUp,
+    User,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import StatsCard, { StatsGrid } from './StatsCard';
 import AnimatedButton from './AnimatedButton';
+import StatsCard, { StatsGrid } from './StatsCard';
 import { SubscriptionStatus } from './SubscriptionStatus';
 
 interface RecentActivity {
@@ -265,8 +266,8 @@ const DashboardOverview = () => {
                     <User size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{activity.customerName}</p>
-                    <p className="text-xs text-slate-500">{activity.service}</p>
+                    <p className="text-sm font-semibold text-slate-900">{sanitizeText(activity.customerName)}</p>
+                    <p className="text-xs text-slate-500">{sanitizeText(activity.service)}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>{activity.time}</span>
                       <span className={`rounded-full px-2 py-0.5 font-semibold capitalize ${getStatusColor(activity.status)}`}>

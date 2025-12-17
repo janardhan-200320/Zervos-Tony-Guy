@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useLocation } from 'wouter';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import BranchLoginDialog from './BranchLoginDialog';
+import { TokenStorage } from '@/lib/secureStorage';
 
 interface WorkspaceSelectorProps {
   sidebarOpen: boolean;
@@ -24,10 +25,9 @@ export default function WorkspaceSelector({ sidebarOpen }: WorkspaceSelectorProp
 
   const checkBranchAccess = (branchCode: string): boolean => {
     // Check if user has already logged into this branch in this session
-    const accessToken = sessionStorage.getItem(`branch_access_${branchCode}`);
+    const accessToken = TokenStorage.getToken(`branch_access_${branchCode}`);
     if (accessToken) {
       try {
-        const token = JSON.parse(accessToken);
         // Token is valid for current session
         return true;
       } catch {
