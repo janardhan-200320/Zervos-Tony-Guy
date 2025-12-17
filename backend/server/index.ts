@@ -15,7 +15,7 @@ import {
   detectSuspiciousActivity,
   logUnauthorizedAccess,
   logRateLimitExceeded,
-} from "./middleware/logging";
+} from "./middleware";
 
 const app = express();
 
@@ -82,7 +82,7 @@ app.use('/uploads', async (req: Request, res: Response, next: NextFunction) => {
   }
 
   // Check if file is encrypted
-  if (FileEncryption.isFileEncrypted(filePath)) {
+  if (await FileEncryption.isFileEncrypted(filePath)) {
     const tempPath = path.join(process.cwd(), 'uploads', '.temp', path.basename(filePath));
     const tempDir = path.dirname(tempPath);
 
@@ -92,8 +92,8 @@ app.use('/uploads', async (req: Request, res: Response, next: NextFunction) => {
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      // Decrypt to temp file
-      await FileEncryption.decryptFileInPlace(filePath, `${filePath}.meta`);
+      // Decrypt in place
+      await FileEncryption.decryptFileInPlace(filePath);
       
       // Send decrypted file
       res.sendFile(filePath, (err) => {

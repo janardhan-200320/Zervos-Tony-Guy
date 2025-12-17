@@ -75,7 +75,7 @@ function parseDurationToMs(value: string): number {
 const REFRESH_TOKEN_EXPIRY_MS = parseDurationToMs(REFRESH_TOKEN_EXPIRY);
 
 export interface AuthPayload {
-  userId: number;
+  userId: string;
   username: string;
   role?: string;
 }
@@ -91,7 +91,7 @@ function generateJti(): string {
 
 function cleanupRevokedRefreshTokens(): void {
   const now = Date.now();
-  for (const [jti, expiresAt] of revokedRefreshJtis.entries()) {
+  for (const [jti, expiresAt] of Array.from(revokedRefreshJtis.entries())) {
     if (expiresAt <= now) {
       revokedRefreshJtis.delete(jti);
     }

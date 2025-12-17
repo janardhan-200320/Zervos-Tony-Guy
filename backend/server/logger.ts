@@ -123,7 +123,7 @@ export enum SecurityEventType {
 export class SecurityLogger {
   static async logEvent(
     eventType: SecurityEventType,
-    userId: number | null,
+    userId: string | null,
     details: Record<string, any> = {},
     ipAddress?: string,
     userAgent?: string
@@ -157,7 +157,6 @@ export class SecurityLogger {
         ipAddress: logEntry.ipAddress,
         userAgent: logEntry.userAgent,
         details: logEntry,
-        createdAt: new Date(),
       });
     } catch (error: any) {
       // Don't throw - logging should never break the application
@@ -166,7 +165,7 @@ export class SecurityLogger {
   }
 
   // Convenience methods for common events
-  static logLoginSuccess(userId: number, ipAddress?: string, userAgent?: string) {
+  static logLoginSuccess(userId: string, ipAddress?: string, userAgent?: string) {
     this.logEvent(SecurityEventType.LOGIN_SUCCESS, userId, {}, ipAddress, userAgent);
   }
 
@@ -174,11 +173,11 @@ export class SecurityLogger {
     this.logEvent(SecurityEventType.LOGIN_FAILURE, null, { username, reason }, ipAddress, userAgent);
   }
 
-  static logLogout(userId: number, ipAddress?: string) {
+  static logLogout(userId: string, ipAddress?: string) {
     this.logEvent(SecurityEventType.LOGOUT, userId, {}, ipAddress);
   }
 
-  static logPermissionDenied(userId: number | null, resource: string, action: string, ipAddress?: string) {
+  static logPermissionDenied(userId: string | null, resource: string, action: string, ipAddress?: string) {
     this.logEvent(SecurityEventType.PERMISSION_DENIED, userId, { resource, action }, ipAddress);
   }
 
@@ -188,7 +187,7 @@ export class SecurityLogger {
 
   static logFileOperation(
     operation: 'upload' | 'download' | 'delete',
-    userId: number,
+    userId: string,
     fileName: string,
     fileSize?: number,
     ipAddress?: string
@@ -200,15 +199,15 @@ export class SecurityLogger {
     this.logEvent(eventType, userId, { fileName, fileSize }, ipAddress);
   }
 
-  static logDataAccess(userId: number, resource: string, action: string, recordId?: number) {
+  static logDataAccess(userId: string, resource: string, action: string, recordId?: number) {
     this.logEvent(SecurityEventType.DATA_ACCESS, userId, { resource, action, recordId });
   }
 
-  static logDataModification(userId: number, resource: string, action: string, recordId?: number, changes?: any) {
+  static logDataModification(userId: string, resource: string, action: string, recordId?: number, changes?: any) {
     this.logEvent(SecurityEventType.DATA_MODIFICATION, userId, { resource, action, recordId, changes });
   }
 
-  static logDataDeletion(userId: number, resource: string, recordId?: number) {
+  static logDataDeletion(userId: string, resource: string, recordId?: number) {
     this.logEvent(SecurityEventType.DATA_DELETION, userId, { resource, recordId });
   }
 
@@ -220,17 +219,17 @@ export class SecurityLogger {
     this.logEvent(SecurityEventType.RATE_LIMIT_EXCEEDED, null, { path }, ipAddress);
   }
 
-  static logPasswordChange(userId: number, ipAddress?: string) {
+  static logPasswordChange(userId: string, ipAddress?: string) {
     this.logEvent(SecurityEventType.PASSWORD_CHANGE, userId, {}, ipAddress);
   }
 
-  static logAccountCreated(userId: number, username: string, role: string, ipAddress?: string) {
+  static logAccountCreated(userId: string, username: string, role: string, ipAddress?: string) {
     this.logEvent(SecurityEventType.ACCOUNT_CREATED, userId, { username, role }, ipAddress);
   }
 
   static logPayment(
     status: 'initiated' | 'completed' | 'failed',
-    userId: number,
+    userId: string,
     amount: number,
     currency: string,
     paymentMethod?: string,
