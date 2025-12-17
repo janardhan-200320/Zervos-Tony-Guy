@@ -53,6 +53,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card as UICard, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import BranchLoginDialog from '@/components/BranchLoginDialog';
+import { TokenStorage } from '@/lib/secureStorage';
 
 const DashboardOverview = () => {
   const { selectedWorkspace, workspaces, setSelectedWorkspace } = useWorkspace();
@@ -67,10 +68,9 @@ const DashboardOverview = () => {
   const branchId = selectedWorkspace?.id || 'default';
 
   const checkBranchAccess = (branchCode: string): boolean => {
-    const accessToken = sessionStorage.getItem(`branch_access_${branchCode}`);
+    const accessToken = TokenStorage.getToken(`branch_access_${branchCode}`);
     if (accessToken) {
       try {
-        const token = JSON.parse(accessToken);
         return true;
       } catch {
         return false;

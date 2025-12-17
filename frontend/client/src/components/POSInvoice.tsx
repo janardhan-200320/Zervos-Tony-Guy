@@ -1,3 +1,4 @@
+import { sanitizeText } from '@/lib/sanitize';
 import React from 'react';
 
 interface InvoiceItem {
@@ -103,31 +104,31 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, POSInvoiceProps>(
         {/* Header */}
         <div className="text-center" style={{ borderBottom: '2px double #000', paddingBottom: '10px', marginBottom: '10px' }}>
           <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px', letterSpacing: '1.5px' }}>
-            {company.name.toUpperCase()}
+            {sanitizeText(company.name).toUpperCase()}
           </div>
           {company.businessType && (
             <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', letterSpacing: '0.5px' }}>
-              {company.businessType.toUpperCase()}
+              {sanitizeText(company.businessType).toUpperCase()}
             </div>
           )}
           <div style={{ borderTop: '1px solid #ccc', marginTop: '5px', paddingTop: '5px' }}>
             {company.address && (
-              <div style={{ fontSize: '10px', marginBottom: '2px' }}>{company.address}</div>
+              <div style={{ fontSize: '10px', marginBottom: '2px' }}>{sanitizeText(company.address)}</div>
             )}
             {company.city && (
               <div style={{ fontSize: '10px', marginBottom: '2px' }}>
-                {company.city}{company.state && `, ${company.state}`}{company.pincode && ` - ${company.pincode}`}
+                {sanitizeText(company.city)}{company.state && `, ${sanitizeText(company.state)}`}{company.pincode && ` - ${sanitizeText(company.pincode)}`}
               </div>
             )}
             {company.phone && (
-              <div style={{ fontSize: '10px', marginBottom: '2px' }}>Tel: {company.phone}</div>
+              <div style={{ fontSize: '10px', marginBottom: '2px' }}>Tel: {sanitizeText(company.phone)}</div>
             )}
             {company.email && (
-              <div style={{ fontSize: '10px', marginBottom: '2px' }}>{company.email}</div>
+              <div style={{ fontSize: '10px', marginBottom: '2px' }}>{sanitizeText(company.email)}</div>
             )}
             {company.gst && showTax && (
               <div style={{ fontSize: '10px', fontWeight: '600', marginTop: '4px', padding: '3px', background: '#f0f0f0', borderRadius: '2px' }}>
-                GSTIN: {company.gst}
+                GSTIN: {sanitizeText(company.gst)}
               </div>
             )}
           </div>
@@ -164,13 +165,13 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, POSInvoiceProps>(
           {transaction.customer.name && transaction.customer.name !== 'Walk-in Customer' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span style={{ fontWeight: '600' }}>Customer:</span>
-              <span>{transaction.customer.name}</span>
+              <span>{sanitizeText(transaction.customer.name)}</span>
             </div>
           )}
           {transaction.staff && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span style={{ fontWeight: '600' }}>Cashier:</span>
-              <span>{transaction.staff}</span>
+              <span>{sanitizeText(transaction.staff)}</span>
             </div>
           )}
         </div>
@@ -191,11 +192,11 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, POSInvoiceProps>(
             <div key={index} style={{ marginBottom: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
                 <div style={{ flex: '3', paddingRight: '4px' }}>
-                  <div style={{ fontWeight: '600', wordWrap: 'break-word' }}>{item.name}</div>
+                  <div style={{ fontWeight: '600', wordWrap: 'break-word' }}>{sanitizeText(item.name)}</div>
                   {item.assignedPerson && (
                     <div style={{ fontSize: '9px', color: '#444', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                       <span style={{ fontSize: '10px' }}>👤</span>
-                      <span style={{ fontWeight: '500' }}>Served by: {item.assignedPerson}</span>
+                      <span style={{ fontWeight: '500' }}>Served by: {sanitizeText(item.assignedPerson)}</span>
                     </div>
                   )}
                 </div>
@@ -304,7 +305,7 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, POSInvoiceProps>(
         }}>
           {transaction.staff && (
             <div style={{ marginBottom: '5px', fontWeight: '600' }}>
-              🧑‍💼 Served by: {transaction.staff}
+              🧑‍💼 Served by: {sanitizeText(transaction.staff)}
             </div>
           )}
           <div style={{ marginBottom: '5px', fontSize: '8px', color: '#666' }}>
@@ -328,7 +329,7 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, POSInvoiceProps>(
           }}>
             {company.phone && (
               <div style={{ marginBottom: '3px', fontWeight: '600', fontSize: '10px' }}>
-                📞 {company.phone}
+                📞 {sanitizeText(company.phone)}
               </div>
             )}
             {company.email && (

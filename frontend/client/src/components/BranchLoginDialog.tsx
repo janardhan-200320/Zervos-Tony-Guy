@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Lock, User, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TokenStorage } from '@/lib/secureStorage';
 
 interface BranchLoginDialogProps {
   isOpen: boolean;
@@ -40,13 +41,13 @@ export default function BranchLoginDialog({
     setTimeout(() => {
       // For demo purposes, accept any non-empty credentials
       if (username.trim() && password.trim()) {
-        // Store branch access token
+        // Store branch access token securely with encryption
         const accessToken = {
           branchCode,
           username,
           timestamp: Date.now(),
         };
-        sessionStorage.setItem(`branch_access_${branchCode}`, JSON.stringify(accessToken));
+        TokenStorage.setToken(`branch_access_${branchCode}`, accessToken);
 
         toast({
           title: 'Login Successful',

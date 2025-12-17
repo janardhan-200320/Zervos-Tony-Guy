@@ -1,6 +1,7 @@
 import { Invoice } from '@/lib/invoice-utils';
-import { useRef, useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 // @ts-ignore
+import { sanitizeText } from '@/lib/sanitize';
 import html2pdf from 'html2pdf.js';
 import { Download, Printer } from 'lucide-react';
 
@@ -135,26 +136,27 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
               <img src={orgDetails.logo} alt="Logo" className="w-20 h-20 mb-3 rounded-lg object-contain" />
             )}
             <div className="text-3xl font-bold mb-2" style={{ color: orgDetails.brandColor || '#6366f1' }}>
-              {orgDetails.businessName}
+              {sanitizeText(orgDetails.businessName)}
             </div>
             {orgDetails.email && (
-              <p className="text-gray-600 text-sm">{orgDetails.email}</p>
+              <p className="text-gray-600 text-sm">{sanitizeText(orgDetails.email)}</p>
             )}
             {orgDetails.contactNumber && (
-              <p className="text-gray-600 text-sm">{orgDetails.contactNumber}</p>
+              <p className="text-gray-600 text-sm">{sanitizeText(orgDetails.contactNumber)}</p>
             )}
             {orgDetails.gstNumber && (
-              <p className="text-gray-600 text-sm font-medium mt-1">GST: {orgDetails.gstNumber}</p>
+              <p className="text-gray-600 text-sm font-medium mt-1">GST: {sanitizeText(orgDetails.gstNumber)}</p>
             )}
             {orgDetails.address.street && (
               <div className="text-gray-600 text-sm mt-2">
-                <p>{orgDetails.address.street}</p>
+                <p>{sanitizeText(orgDetails.address.street)}</p>
                 <p>
                   {[orgDetails.address.city, orgDetails.address.state, orgDetails.address.pincode]
                     .filter(Boolean)
+                    .map(sanitizeText)
                     .join(', ')}
                 </p>
-                {orgDetails.address.country && <p>{orgDetails.address.country}</p>}
+                {orgDetails.address.country && <p>{sanitizeText(orgDetails.address.country)}</p>}
               </div>
             )}
           </div>
@@ -175,10 +177,10 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
         <div className="grid grid-cols-2 gap-8 mb-10">
           <div>
             <h3 className="text-xs font-semibold uppercase text-gray-500 mb-3">Bill To</h3>
-            <p className="font-bold text-lg mb-1">{invoice.customer.name}</p>
-            <p className="text-gray-700">{invoice.customer.email}</p>
+            <p className="font-bold text-lg mb-1">{sanitizeText(invoice.customer.name)}</p>
+            <p className="text-gray-700">{sanitizeText(invoice.customer.email)}</p>
             {invoice.customer.phone && (
-              <p className="text-gray-700">{invoice.customer.phone}</p>
+              <p className="text-gray-700">{sanitizeText(invoice.customer.phone)}</p>
             )}
           </div>
           <div>
@@ -214,9 +216,9 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
           <tbody>
             <tr className="border-b-2 border-gray-300">
               <td className="py-4 px-4">
-                <span className="font-semibold text-base">{invoice.service.name}</span>
+                <span className="font-semibold text-base">{sanitizeText(invoice.service.name)}</span>
               </td>
-              <td className="py-4 px-4 text-gray-700">{invoice.service.duration}</td>
+              <td className="py-4 px-4 text-gray-700">{sanitizeText(invoice.service.duration)}</td>
               <td className="py-4 px-4 text-right font-semibold">
                 {invoice.currency}{invoice.service.price.toFixed(2)}
               </td>
@@ -293,7 +295,7 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
         {invoice.notes && (
           <div className="bg-gray-50 p-6 rounded-lg mb-8">
             <h3 className="font-semibold text-gray-900 mb-2">Notes</h3>
-            <p className="text-gray-700 text-sm">{invoice.notes}</p>
+            <p className="text-gray-700 text-sm">{sanitizeText(invoice.notes)}</p>
           </div>
         )}
 
@@ -305,25 +307,25 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
               {orgDetails.bankDetails.accountName && (
                 <div>
                   <span className="text-gray-600">Account Name:</span>
-                  <p className="font-medium">{orgDetails.bankDetails.accountName}</p>
+                  <p className="font-medium">{sanitizeText(orgDetails.bankDetails.accountName)}</p>
                 </div>
               )}
               {orgDetails.bankDetails.accountNumber && (
                 <div>
                   <span className="text-gray-600">Account Number:</span>
-                  <p className="font-medium font-mono">{orgDetails.bankDetails.accountNumber}</p>
+                  <p className="font-medium font-mono">{sanitizeText(orgDetails.bankDetails.accountNumber)}</p>
                 </div>
               )}
               {orgDetails.bankDetails.ifscCode && (
                 <div>
                   <span className="text-gray-600">IFSC Code:</span>
-                  <p className="font-medium">{orgDetails.bankDetails.ifscCode}</p>
+                  <p className="font-medium">{sanitizeText(orgDetails.bankDetails.ifscCode)}</p>
                 </div>
               )}
               {orgDetails.bankDetails.bankName && (
                 <div>
                   <span className="text-gray-600">Bank Name:</span>
-                  <p className="font-medium">{orgDetails.bankDetails.bankName}</p>
+                  <p className="font-medium">{sanitizeText(orgDetails.bankDetails.bankName)}</p>
                 </div>
               )}
             </div>
@@ -332,9 +334,9 @@ export default function InvoiceTemplate({ invoice, onClose }: InvoiceTemplatePro
 
         {/* Footer */}
         <div className="text-center pt-8 border-t border-gray-200 text-gray-600">
-          <p className="mb-2">Thank you for booking with {orgDetails.businessName}!</p>
+          <p className="mb-2">Thank you for booking with {sanitizeText(orgDetails.businessName)}!</p>
           {orgDetails.website && (
-            <p className="text-sm text-gray-500 mb-2">{orgDetails.website}</p>
+            <p className="text-sm text-gray-500 mb-2">{sanitizeText(orgDetails.website)}</p>
           )}
           <p className="text-xs text-gray-500">
             This is a computer-generated invoice and does not require a signature.
