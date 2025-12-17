@@ -6,12 +6,20 @@ import multer from "multer";
 import path from "path";
 import { fromZodError } from "zod-validation-error";
 import { storage } from "./storage";
+import { authMiddleware, generateAccessToken, generateRefreshToken, rotateRefreshToken, type AuthRequest } from "./auth";
+import { InputValidation } from "./validation";
+import { FileEncryption, DataEncryption } from "./encryption";
 
 // Configure multer for file uploads
 const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// Define allowed MIME types and extensions for uploads
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'];
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB max
 
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -26,53 +34,220 @@ const storage_multer = multer.diskStorage({
 const upload = multer({
   storage: storage_multer,
   limits: {
-    fileSize: 2 * 1024 * 1024, // 2MB max
+    fileSize: MAX_FILE_SIZE,
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only JPG, PNG, and GIF images are allowed!'));
+    // Validate MIME type
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      return cb(new Error(`Invalid file type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`));
     }
+
+    // Validate file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return cb(new Error(`Invalid file extension. Allowed extensions: ${ALLOWED_EXTENSIONS.join(', ')}`));
+    }
+
+    cb(null, true);
   }
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // ========== USER PROFILE ROUTES ==========
+  // ========== AUTHENTICATION ROUTES ==========
 
-  // GET /api/user/profile - Get user profile (using mock user for now)
-  app.get("/api/user/profile", async (req, res) => {
+  // POST /api/auth/login - Login with username and password
+  app.post("/api/auth/login", async (req, res) => {
     try {
-      // For demo purposes, we'll use a mock user ID
-      // In production, get this from session/JWT token
-      const mockUserId = "demo-user-1";
-      
-      // Try to get from storage, create if doesn't exist
-      let user = await storage.getUser(mockUserId);
-      
-      if (!user) {
-        // Create a demo user if it doesn't exist
-        user = await storage.createUser({
-          username: "demo_user",
-          password: "hashed_password_here", // In production, this would be hashed
-        });
+      const { username, password } = req.body;
+
+      // Validate inputs
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
       }
 
-      return res.json(user);
+      // Sanitize username
+      const usernameValidation = InputValidation.sanitizeUsername(username);
+      if (!usernameValidation.isValid) {
+        return res.status(400).json({ error: usernameValidation.error });
+      }
+
+      // Validate password format
+      if (typeof password !== "string" || password.length === 0) {
+        return res.status(400).json({ error: "Password must be a non-empty string" });
+      }
+
+      // Find user by username
+      const user = await storage.getUserByUsername(usernameValidation.value);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Verify password
+      const isPasswordValid = await storage.verifyPassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Generate tokens
+      const accessToken = generateAccessToken({ userId: user.id, username: user.username });
+      const refreshToken = generateRefreshToken({ userId: user.id, username: user.username });
+
+      // Return tokens and user info (without password)
+      const { password: _, ...userWithoutPassword } = user;
+      return res.json({
+        success: true,
+        accessToken,
+        refreshToken,
+        user: userWithoutPassword,
+      });
+    } catch (error) {
+      console.error("Error during login:", error);
+      return res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // POST /api/auth/register - Register a new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      // Sanitize and validate username
+      const usernameValidation = InputValidation.sanitizeUsername(username);
+      if (!usernameValidation.isValid) {
+        return res.status(400).json({ error: usernameValidation.error });
+      }
+
+      // Validate password strength
+      const passwordValidation = InputValidation.sanitizePassword(password);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ error: passwordValidation.error });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(usernameValidation.value);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+
+      // Create new user
+      const user = await storage.createUser({
+        username: usernameValidation.value,
+        password: password,
+      });
+
+      // Generate tokens
+      const accessToken = generateAccessToken({ userId: user.id, username: user.username });
+      const refreshToken = generateRefreshToken({ userId: user.id, username: user.username });
+
+      // Return tokens and user info (without password)
+      const { password: _, ...userWithoutPassword } = user;
+      return res.status(201).json({
+        success: true,
+        accessToken,
+        refreshToken,
+        user: userWithoutPassword,
+      });
+    } catch (error) {
+      console.error("Error during registration:", error);
+      return res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // POST /api/auth/refresh - Refresh access token
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token is required" });
+      }
+
+      // Rotate refresh token and return new tokens
+      const rotation = rotateRefreshToken(refreshToken);
+      if (!rotation) {
+        return res.status(401).json({ error: "Invalid or expired refresh token" });
+      }
+
+      return res.json({
+        success: true,
+        accessToken: rotation.accessToken,
+        refreshToken: rotation.refreshToken,
+      });
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      return res.status(500).json({ error: "Token refresh failed" });
+    }
+  });
+
+  // POST /api/auth/logout - Logout user
+  app.post("/api/auth/logout", (req, res) => {
+    // In a production app with persistent sessions, you would invalidate the token here
+    // For now, this is a simple endpoint that signals to the client to clear tokens
+    return res.json({ success: true, message: "Logged out successfully" });
+  });
+
+  // ========== USER PROFILE ROUTES ==========
+
+  // GET /api/user/profile - Get user profile (requires authentication)
+  app.get("/api/user/profile", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      return res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return res.status(500).json({ error: "Failed to fetch profile" });
     }
   });
 
-  // PUT /api/user/profile - Update user profile
-  app.put("/api/user/profile", async (req, res) => {
+  // PUT /api/user/profile - Update user profile (requires authentication)
+  app.put("/api/user/profile", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const result = updateUserProfileSchema.safeParse(req.body);
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Sanitize input object
+      const sanitizedInput = InputValidation.sanitizeObject(req.body);
+
+      // Sanitize individual fields if present
+      if (sanitizedInput.name && typeof sanitizedInput.name === "string") {
+        sanitizedInput.name = InputValidation.sanitizeText(sanitizedInput.name, 100);
+      }
+
+      if (sanitizedInput.email && typeof sanitizedInput.email === "string") {
+        const emailValidation = InputValidation.sanitizeEmail(sanitizedInput.email);
+        if (!emailValidation.isValid) {
+          return res.status(400).json({ error: emailValidation.error });
+        }
+        sanitizedInput.email = emailValidation.value;
+      }
+
+      if (sanitizedInput.phone && typeof sanitizedInput.phone === "string") {
+        const phoneValidation = InputValidation.sanitizePhoneNumber(sanitizedInput.phone);
+        if (!phoneValidation.isValid) {
+          return res.status(400).json({ error: phoneValidation.error });
+        }
+        sanitizedInput.phone = phoneValidation.value;
+      }
+
+      const result = updateUserProfileSchema.safeParse(sanitizedInput);
       
       if (!result.success) {
         const validationError = fromZodError(result.error);
@@ -82,31 +257,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const mockUserId = "demo-user-1";
-      const updated = await storage.updateUserProfile(mockUserId, result.data);
+      const updated = await storage.updateUserProfile(userId, result.data);
 
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      return res.json(updated);
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = updated;
+      return res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error updating user profile:", error);
       return res.status(500).json({ error: "Failed to update profile" });
     }
   });
 
-  // POST /api/user/avatar - Upload profile picture
-  app.post("/api/user/avatar", upload.single('avatar'), async (req, res) => {
+  // POST /api/user/avatar - Upload profile picture (requires authentication)
+  app.post("/api/user/avatar", authMiddleware, upload.single('avatar'), async (req: AuthRequest, res) => {
     try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const mockUserId = "demo-user-1";
+      const filePath = req.file.path;
+
+      // Encrypt the uploaded file for security
+      try {
+        await FileEncryption.encryptFileInPlace(filePath);
+        console.log(`✅ Avatar encrypted: ${req.file.filename}`);
+      } catch (encError) {
+        console.error("File encryption failed:", encError);
+        // Continue without encryption if it fails (graceful degradation)
+        // In production, you might want to fail the upload instead
+      }
+
       const avatarUrl = `/uploads/avatars/${req.file.filename}`;
 
-      const updated = await storage.updateUserProfile(mockUserId, {
+      const updated = await storage.updateUserProfile(userId, {
         avatar: avatarUrl,
       });
 
@@ -114,10 +306,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      const { password: _, ...userWithoutPassword } = updated;
       return res.json({
         success: true,
         avatarUrl: avatarUrl,
-        user: updated,
+        user: userWithoutPassword,
       });
     } catch (error) {
       console.error("Error uploading avatar:", error);
@@ -125,24 +318,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PUT /api/user/password - Change password
-  app.put("/api/user/password", async (req, res) => {
+  // PUT /api/user/password - Change password (requires authentication)
+  app.put("/api/user/password", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
       const { currentPassword, newPassword } = req.body;
 
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ error: "Current and new passwords are required" });
       }
 
-      if (newPassword.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      // Validate current password format
+      if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+        return res.status(400).json({ error: "Current password must be a non-empty string" });
       }
 
-      const mockUserId = "demo-user-1";
-      
-      // In production, verify current password against hashed password
-      // For demo, we'll just update
-      const success = await storage.updateUserPassword(mockUserId, newPassword);
+      // Validate new password strength
+      const passwordValidation = InputValidation.sanitizePassword(newPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ error: passwordValidation.error });
+      }
+
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Verify current password
+      const isPasswordValid = await storage.verifyPassword(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      // Update to new password
+      const success = await storage.updateUserPassword(userId, newPassword);
 
       if (!success) {
         return res.status(404).json({ error: "User not found" });
@@ -155,11 +369,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/user/sessions - Get user sessions
-  app.get("/api/user/sessions", async (req, res) => {
+  // GET /api/user/sessions - Get user sessions (requires authentication)
+  app.get("/api/user/sessions", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const mockUserId = "demo-user-1";
-      const sessions = await storage.getUserSessions(mockUserId);
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const sessions = await storage.getUserSessions(userId);
       return res.json(sessions);
     } catch (error) {
       console.error("Error fetching user sessions:", error);
@@ -167,10 +385,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/user/sessions/:id - Revoke a session
-  app.delete("/api/user/sessions/:id", async (req, res) => {
+  // DELETE /api/user/sessions/:id - Revoke a session (requires authentication)
+  app.delete("/api/user/sessions/:id", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      await storage.deleteUserSession(req.params.id);
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // SQL Injection Protection: UUID validation
+      const sessionIdValidation = InputValidation.validateUUID(req.params.id);
+      if (!sessionIdValidation.isValid) {
+        return res.status(400).json({ error: sessionIdValidation.error });
+      }
+      const sessionId = req.params.id;
+
+      await storage.deleteUserSession(sessionId);
       return res.json({ success: true, message: "Session revoked successfully" });
     } catch (error) {
       console.error("Error revoking session:", error);
@@ -178,11 +408,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/user/account - Delete user account
-  app.delete("/api/user/account", async (req, res) => {
+  // DELETE /api/user/account - Delete user account (requires authentication)
+  app.delete("/api/user/account", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const mockUserId = "demo-user-1";
-      await storage.deleteUser(mockUserId);
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      await storage.deleteUser(userId);
       return res.json({ success: true, message: "Account deleted successfully" });
     } catch (error) {
       console.error("Error deleting account:", error);
@@ -296,10 +530,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/resources", async (req, res) => {
     try {
       const { type, status, search } = req.query;
+      
+      // SQL Injection Protection: Sanitize query parameters
+      const sanitizedType = type ? InputValidation.sanitizeText(type as string, 50) : undefined;
+      const sanitizedStatus = status ? InputValidation.sanitizeText(status as string, 50) : undefined;
+      const sanitizedSearch = search ? InputValidation.sanitizeText(search as string, 100) : undefined;
+      
       const resources = await storage.getAllResources({
-        type: type as string,
-        status: status as string,
-        search: search as string,
+        type: sanitizedType,
+        status: sanitizedStatus,
+        search: sanitizedSearch,
       });
       return res.json(resources);
     } catch (error) {
@@ -311,7 +551,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/resources/:id - Get resource by ID
   app.get("/api/resources/:id", async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      // SQL Injection Protection: UUID validation
+      const resourceId = req.params.id;
+      if (!resourceId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resourceId)) {
+        return res.status(400).json({ error: "Invalid resource ID format" });
+      }
+      
+      const resource = await storage.getResource(resourceId);
       
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
@@ -327,6 +573,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUT /api/resources/:id - Update resource
   app.put("/api/resources/:id", async (req, res) => {
     try {
+      // SQL Injection Protection: UUID validation
+      const resourceId = req.params.id;
+      if (!resourceId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resourceId)) {
+        return res.status(400).json({ error: "Invalid resource ID format" });
+      }
+      
       const result = insertResourceSchema.safeParse(req.body);
       
       if (!result.success) {
@@ -337,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const resource = await storage.updateResource(req.params.id, result.data);
+      const resource = await storage.updateResource(resourceId, result.data);
       
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
