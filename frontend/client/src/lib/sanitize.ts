@@ -1,4 +1,4 @@
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config as DomPurifyConfig } from 'dompurify';
 
 /**
  * Sanitizes HTML content to prevent XSS attacks
@@ -8,19 +8,23 @@ import DOMPurify from 'dompurify';
  */
 export function sanitizeHtml(
   dirty: string | undefined | null,
-  options?: any
+  options?: DomPurifyConfig
 ): string {
   if (!dirty) return '';
-  
-  return DOMPurify.sanitize(dirty, {
+
+  const sanitized = DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
-      'b', 'i', 'em', 'strong', 'a', 'p', 'br', 'span', 
+      'b', 'i', 'em', 'strong', 'a', 'p', 'br', 'span',
       'div', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
     ],
     ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
     ALLOW_DATA_ATTR: false,
     ...options,
-  }) as string;
+  });
+
+  // DOMPurify returns string | TrustedHTML; we only emit string to avoid type narrowing issues
+  return typeof sanitized === 'string' ? sanitized : String(sanitized);
+}
 
 /**
  * Sanitizes text content by removing all HTML tags
@@ -30,11 +34,13 @@ export function sanitizeHtml(
  */
 export function sanitizeText(dirty: string | undefined | null): string {
   if (!dirty) return '';
-  
-  return DOMPurify.sanitize(dirty, {
+
+  const sanitized = DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [],
     ALLOWED_ATTR: [],
-  }) as string;
+  });
+
+  return typeof sanitized === 'string' ? sanitized : String(sanitized);
 }
 
 /**

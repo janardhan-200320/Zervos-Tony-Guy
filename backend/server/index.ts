@@ -1,67 +1,27 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import cors from "cors";
-import fs from "fs";
 import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import { FileEncryption } from "./encryption";
 import { logger, log } from "./logger";
 import {
   requestLogger,
   authEventLogger,
   detectSuspiciousActivity,
   logUnauthorizedAccess,
-  logRateLimitExceeded,
+  applyCoreMiddleware,
+  uploadsMiddleware,
 } from "./middleware";
+import { authLimiter, apiLimiter } from "./config/rate-limits";
 
 const app = express();
-
-// HTTPS Enforcement in production
-if (process.env.NODE_ENV === 'production') {
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.header('x-forwarded-proto') !== 'https') {
-      res.redirect(`https://${req.header('host')}${req.url}`);
-    } else {
-      next();
-    }
-  });
-}
-
-// Security middleware
-app.use(helmet()); // Add security headers
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Rate limiting with logging
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: logRateLimitExceeded, // Log rate limit violations
-});
-
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
   }
 }
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
-app.use(express.urlencoded({ extended: false }));
+
+applyCoreMiddleware(app);
 
 // Security and logging middleware
 app.use(requestLogger); // Log all requests
@@ -69,53 +29,12 @@ app.use(detectSuspiciousActivity); // Detect malicious patterns
 app.use(logUnauthorizedAccess); // Log 401/403 responses
 app.use(authEventLogger); // Track auth events
 
-// Apply rate limiting to all routes
-app.use(limiter);
+// Apply route-specific rate limits
+app.use('/api/auth', authLimiter);
+app.use(apiLimiter);
 
-// Serve uploaded files with decryption middleware
-app.use('/uploads', async (req: Request, res: Response, next: NextFunction) => {
-  const filePath = path.join(process.cwd(), 'uploads', req.path.slice(1));
-  
-  // Check if file exists
-  if (!fs.existsSync(filePath)) {
-    return next();
-  }
-
-  // Check if file is encrypted
-  if (await FileEncryption.isFileEncrypted(filePath)) {
-    const tempPath = path.join(process.cwd(), 'uploads', '.temp', path.basename(filePath));
-    const tempDir = path.dirname(tempPath);
-
-    try {
-      // Create temp directory if it doesn't exist
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-
-      // Decrypt in place
-      await FileEncryption.decryptFileInPlace(filePath);
-      
-      // Send decrypted file
-      res.sendFile(filePath, (err) => {
-        // Re-encrypt after sending
-        FileEncryption.encryptFileInPlace(filePath).catch(error => 
-          logger.error('Re-encryption failed:', { error, filePath })
-        );
-        
-        if (err) {
-          logger.error('Error sending decrypted file:', { error: err, filePath });
-          res.status(500).send('Error serving file');
-        }
-      });
-    } catch (error) {
-      logger.error('File decryption failed:', { error, filePath });
-      return res.status(500).send('Error decrypting file');
-    }
-  } else {
-    // Serve unencrypted file normally
-    next();
-  }
-}, express.static('uploads'));
+// Serve uploaded files with streaming decryption
+app.use('/uploads', uploadsMiddleware());
 
 // Health check endpoint for load balancers
 app.get('/health', (req: Request, res: Response) => {

@@ -76,6 +76,40 @@ export const FileEncryption = {
     }
   },
 
+  async decryptFileToStream(inputPath: string, writable: NodeJS.WritableStream): Promise<void> {
+    const stats = await fs.promises.stat(inputPath);
+    const fileSize = stats.size;
+    if (fileSize < IV_LENGTH + AUTH_TAG_LENGTH) {
+      throw new Error("File decryption failed: file too small to contain IV and auth tag");
+    }
+
+    const fh = await fs.promises.open(inputPath, "r");
+    try {
+      const iv = Buffer.alloc(IV_LENGTH);
+      await fh.read(iv, 0, IV_LENGTH, 0);
+
+      const authTagBuf = Buffer.alloc(AUTH_TAG_LENGTH);
+      await fh.read(authTagBuf, 0, AUTH_TAG_LENGTH, fileSize - AUTH_TAG_LENGTH);
+      await fh.close();
+
+      const decipher = crypto.createDecipheriv(ALGORITHM, FILE_KEY, iv);
+      decipher.setAuthTag(authTagBuf);
+
+      await new Promise<void>((resolve, reject) => {
+        const input = fs.createReadStream(inputPath, { start: IV_LENGTH, end: fileSize - AUTH_TAG_LENGTH - 1 });
+        input.pipe(decipher).pipe(writable);
+
+        writable.on("finish", () => resolve());
+        writable.on("error", (e) => reject(new Error("File decryption failed: " + e.message)));
+        input.on("error", (e) => reject(new Error("File decryption failed: " + e.message)));
+        decipher.on("error", () => reject(new Error("File decryption failed: authentication error")));
+      });
+    } catch (err) {
+      try { await fh.close(); } catch {}
+      throw err;
+    }
+  },
+
   async encryptFileInPlace(filePath: string): Promise<string> {
     const tempPath = `${filePath}.tmp`;
     try {

@@ -11,7 +11,10 @@ import { Pool } from 'pg';
  * - Connection pooling for performance and security
  */
 
-let db: ReturnType<typeof drizzle> | null = null;
+type Database = ReturnType<typeof drizzle>;
+type Transaction = Parameters<Database['transaction']>[0] extends (tx: infer TX) => any ? TX : never;
+
+let db: Database | null = null;
 let pool: Pool | null = null;
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -51,6 +54,12 @@ export function getDb() {
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 30000,
       max: 10, // Max connections in pool
+    });
+
+    pool.on('error', (err) => {
+      console.error('Postgres pool error, resetting pool:', err);
+      db = null;
+      pool = null;
     });
 
     db = drizzle(pool);
@@ -164,11 +173,26 @@ export class QueryLogger {
  * Database transaction wrapper with automatic rollback on error
  */
 export async function withTransaction<T>(
-  callback: (tx: ReturnType<typeof getDb>) => Promise<T>
+  callback: (tx: Transaction) => Promise<T>,
+  options: { maxRetries?: number; retryDelayMs?: number } = {},
 ): Promise<T> {
   const database = getDb();
+  const { maxRetries = 2, retryDelayMs = 50 } = options;
 
-  return database.transaction(async (tx) => {
-    return callback(tx as ReturnType<typeof getDb>);
-  });
+  let attempt = 0;
+  // Retry on serialization/deadlock errors for resilience under concurrency
+  // Codes: 40001 serialization_failure, 40P01 deadlock_detected
+  while (true) {
+    try {
+      return await database.transaction(async (tx) => callback(tx));
+    } catch (err: any) {
+      const code = err?.code;
+      const isRetryable = code === '40001' || code === '40P01';
+      if (!isRetryable || attempt >= maxRetries) {
+        throw err;
+      }
+      attempt += 1;
+      await new Promise((r) => setTimeout(r, retryDelayMs * attempt));
+    }
+  }
 }
