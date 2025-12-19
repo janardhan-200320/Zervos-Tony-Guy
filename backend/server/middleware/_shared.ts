@@ -13,6 +13,7 @@ export const SENSITIVE_FIELDS = [
   'password', 'token', 'secret', 'apiKey', 'creditCard',
   'ssn', 'pin', 'authorization', 'x-api-key', 'authorization-header'
 ];
+
 export const SENSITIVE_FIELDS_LOWER = SENSITIVE_FIELDS.map(field => field.toLowerCase());
 export const SENSITIVE_FIELDS_SET = new Set(SENSITIVE_FIELDS_LOWER);
 
