@@ -1,19 +1,19 @@
 import "dotenv/config";
-import express, { type Request, Response, NextFunction } from "express";
-import path from "path";
+import express, { NextFunction, type Request, Response } from "express";
 import helmet from "helmet";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic } from "./vite";
-import { logger, log } from "./logger";
+import { IncomingMessage, ServerResponse } from "http";
+import { apiLimiter, authLimiter } from "./config/rate-limits";
+import { log, logger } from "./logger";
 import {
-  requestLogger,
+  applyCoreMiddleware,
   authEventLogger,
   detectSuspiciousActivity,
   logUnauthorizedAccess,
-  applyCoreMiddleware,
+  requestLogger,
   uploadsMiddleware,
 } from "./middleware";
-import { authLimiter, apiLimiter } from "./config/rate-limits";
+import { registerRoutes } from "./routes";
+import { serveStatic, setupVite } from "./vite";
 
 const app = express();
 declare module 'http' {
@@ -29,7 +29,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.cspNonce}'`],
+      scriptSrc: ["'self'", (_req: IncomingMessage, res: ServerResponse) => `'nonce-${(res as any).locals.cspNonce}'`],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -46,7 +46,6 @@ app.use(helmet({
     preload: true
   },
   noSniff: true,
-  xssFilter: true,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
