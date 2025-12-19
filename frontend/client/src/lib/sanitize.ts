@@ -53,3 +53,41 @@ export function useSanitizedHtml(html: string | undefined | null) {
     __html: sanitizeHtml(html),
   };
 }
+
+/**
+ * Sanitizes URL to prevent javascript: and data: URI XSS attacks
+ * @param url - The URL to validate and sanitize
+ * @returns Sanitized URL or empty string if invalid
+ */
+export function sanitizeURL(url: string | undefined | null): string {
+  if (!url) return '';
+  
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+    return url;
+  } catch {
+    // Invalid URL format
+    return '';
+  }
+}
+
+/**
+ * Escapes special characters for safe display in HTML context
+ * @param str - The string to escape
+ * @returns Escaped string safe for HTML display
+ */
+export function escapeHtml(str: string | undefined | null): string {
+  if (!str) return '';
+  
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
