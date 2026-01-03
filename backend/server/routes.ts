@@ -1,24 +1,1405 @@
+import { insertOnboardingSchema, insertResourceBookingSchema, insertResourceSchema, updateUserProfileSchema, insertBotFlowSchema, insertConversationSchema, insertBotMessageSchema } from "@shared/schema";
 import type { Express } from "express";
+import fs from "fs";
 import { createServer, type Server } from "http";
-import { registerAnalyticsRoutes } from "./routes/analytics";
-import { registerAppointmentRoutes } from "./routes/appointments";
-import { registerAuthRoutes } from "./routes/auth";
-import { registerOnboardingRoutes } from "./routes/onboarding";
-import { registerPaymentRoutes } from "./routes/payments";
-import { registerResourceRoutes } from "./routes/resources";
-import { registerSubscriptionRoutes } from "./routes/subscriptions";
-import { registerUserRoutes } from "./routes/user";
+import multer from "multer";
+import path from "path";
+import { fromZodError } from "zod-validation-error";
+import { storage } from "./storage";
+import { botEngine, type WhatsAppIncomingMessage } from "./bot-engine";
+import crypto from "crypto";
+
+// Configure multer for file uploads
+const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage_multer,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB max
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only JPG, PNG, and GIF images are allowed!'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  registerAuthRoutes(app);
-  registerUserRoutes(app);
-  registerOnboardingRoutes(app);
-  registerResourceRoutes(app);
-  registerAppointmentRoutes(app);
-  registerPaymentRoutes(app);
-  registerAnalyticsRoutes(app);
-  registerSubscriptionRoutes(app);
+  // ========== HEALTH CHECK ==========
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // ========== USER PROFILE ROUTES ==========
+
+  // GET /api/user/profile - Get user profile (using mock user for now)
+  app.get("/api/user/profile", async (req, res) => {
+    try {
+      // For demo purposes, we'll use a mock user ID
+      // In production, get this from session/JWT token
+      const mockUserId = "demo-user-1";
+      
+      // Try to get from storage, create if doesn't exist
+      let user = await storage.getUser(mockUserId);
+      
+      if (!user) {
+        // Create a demo user if it doesn't exist
+        user = await storage.createUser({
+          username: "demo_user",
+          password: "hashed_password_here", // In production, this would be hashed
+        });
+      }
+
+      return res.json(user);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // PUT /api/user/profile - Update user profile
+  app.put("/api/user/profile", async (req, res) => {
+    try {
+      const result = updateUserProfileSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError.message 
+        });
+      }
+
+      const mockUserId = "demo-user-1";
+      const updated = await storage.updateUserProfile(mockUserId, result.data);
+
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // POST /api/user/avatar - Upload profile picture
+  app.post("/api/user/avatar", upload.single('avatar'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const mockUserId = "demo-user-1";
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      const updated = await storage.updateUserProfile(mockUserId, {
+        avatar: avatarUrl,
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json({
+        success: true,
+        avatarUrl: avatarUrl,
+        user: updated,
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      return res.status(500).json({ error: "Failed to upload avatar" });
+    }
+  });
+
+  // PUT /api/user/password - Change password
+  app.put("/api/user/password", async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current and new passwords are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      }
+
+      const mockUserId = "demo-user-1";
+      
+      // In production, verify current password against hashed password
+      // For demo, we'll just update
+      const success = await storage.updateUserPassword(mockUserId, newPassword);
+
+      if (!success) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Error updating password:", error);
+      return res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
+  // GET /api/user/sessions - Get user sessions
+  app.get("/api/user/sessions", async (req, res) => {
+    try {
+      const mockUserId = "demo-user-1";
+      const sessions = await storage.getUserSessions(mockUserId);
+      return res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching user sessions:", error);
+      return res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  // DELETE /api/user/sessions/:id - Revoke a session
+  app.delete("/api/user/sessions/:id", async (req, res) => {
+    try {
+      await storage.deleteUserSession(req.params.id);
+      return res.json({ success: true, message: "Session revoked successfully" });
+    } catch (error) {
+      console.error("Error revoking session:", error);
+      return res.status(500).json({ error: "Failed to revoke session" });
+    }
+  });
+
+  // DELETE /api/user/account - Delete user account
+  app.delete("/api/user/account", async (req, res) => {
+    try {
+      const mockUserId = "demo-user-1";
+      await storage.deleteUser(mockUserId);
+      return res.json({ success: true, message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      return res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  // POST /api/onboarding - Create new onboarding
+  app.post("/api/onboarding", async (req, res) => {
+    console.log("🚀 POST /api/onboarding - Starting");
+    try {
+      console.log("📝 Received onboarding data:", JSON.stringify(req.body, null, 2));
+      console.log("📝 Data types:", {
+        businessName: typeof req.body.businessName,
+        websiteUrl: typeof req.body.websiteUrl,
+        currency: typeof req.body.currency,
+        industries: Array.isArray(req.body.industries) ? "array" : typeof req.body.industries,
+        businessNeeds: Array.isArray(req.body.businessNeeds) ? "array" : typeof req.body.businessNeeds,
+        timezone: typeof req.body.timezone,
+        availableDays: Array.isArray(req.body.availableDays) ? "array" : typeof req.body.availableDays,
+        availableTimeStart: typeof req.body.availableTimeStart,
+        availableTimeEnd: typeof req.body.availableTimeEnd,
+        eventTypeLabel: typeof req.body.eventTypeLabel,
+        teamMemberLabel: typeof req.body.teamMemberLabel,
+      });
+      
+      console.log("🔍 Validating with schema...");
+      const result = insertOnboardingSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        console.error("❌ Validation failed:", validationError.message);
+        console.error("Validation error details:", JSON.stringify(result.error.errors, null, 2));
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError.message,
+          errors: result.error.errors
+        });
+      }
+
+      console.log("✅ Validation passed");
+      console.log("💾 Creating onboarding record...");
+      
+      const onboarding = await storage.createOnboarding(result.data);
+      console.log("✅ Onboarding created successfully:", onboarding.id);
+      
+      return res.status(201).json(onboarding);
+    } catch (error: any) {
+      console.error("❌ Unexpected error in POST /api/onboarding:", error);
+      console.error("Error message:", error.message);
+      console.error("Stack trace:", error.stack);
+      return res.status(500).json({ 
+        error: "Internal server error",
+        message: error.message,
+        details: error.stack
+      });
+    }
+  });
+
+  // GET /api/onboarding/:id - Get onboarding by ID
+  app.get("/api/onboarding/:id", async (req, res) => {
+    try {
+      const onboarding = await storage.getOnboarding(req.params.id);
+      
+      if (!onboarding) {
+        return res.status(404).json({ error: "Onboarding not found" });
+      }
+
+      return res.json(onboarding);
+    } catch (error) {
+      console.error("Error fetching onboarding:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // GET /api/onboardings - Get all onboardings
+  app.get("/api/onboardings", async (_req, res) => {
+    try {
+      const onboardings = await storage.getAllOnboardings();
+      return res.json(onboardings);
+    } catch (error) {
+      console.error("Error fetching onboardings:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ========== RESOURCE ROUTES ==========
+
+  // POST /api/resources - Create new resource
+  app.post("/api/resources", async (req, res) => {
+    try {
+      const result = insertResourceSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError.message 
+        });
+      }
+
+      const resource = await storage.createResource(result.data);
+      return res.status(201).json(resource);
+    } catch (error) {
+      console.error("Error creating resource:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // GET /api/resources - Get all resources
+  app.get("/api/resources", async (req, res) => {
+    try {
+      const { type, status, search } = req.query;
+      const resources = await storage.getAllResources({
+        type: type as string,
+        status: status as string,
+        search: search as string,
+      });
+      return res.json(resources);
+    } catch (error) {
+      console.error("Error fetching resources:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // GET /api/resources/:id - Get resource by ID
+  app.get("/api/resources/:id", async (req, res) => {
+    try {
+      const resource = await storage.getResource(req.params.id);
+      
+      if (!resource) {
+        return res.status(404).json({ error: "Resource not found" });
+      }
+
+      return res.json(resource);
+    } catch (error) {
+      console.error("Error fetching resource:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // PUT /api/resources/:id - Update resource
+  app.put("/api/resources/:id", async (req, res) => {
+    try {
+      const result = insertResourceSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError.message 
+        });
+      }
+
+      const resource = await storage.updateResource(req.params.id, result.data);
+      
+      if (!resource) {
+        return res.status(404).json({ error: "Resource not found" });
+      }
+
+      return res.json(resource);
+    } catch (error) {
+      console.error("Error updating resource:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // DELETE /api/resources/:id - Delete resource
+  app.delete("/api/resources/:id", async (req, res) => {
+    try {
+      await storage.deleteResource(req.params.id);
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting resource:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ========== RESOURCE BOOKING ROUTES ==========
+
+  // POST /api/resource-bookings - Create new resource booking
+  app.post("/api/resource-bookings", async (req, res) => {
+    try {
+      const result = insertResourceBookingSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationError.message 
+        });
+      }
+
+      // Check if resource is available during requested time
+      const isAvailable = await storage.checkResourceAvailability(
+        result.data.resourceId,
+        result.data.startTime,
+        result.data.endTime
+      );
+
+      if (!isAvailable) {
+        return res.status(409).json({ 
+          error: "Resource is not available during the requested time" 
+        });
+      }
+
+      const booking = await storage.createResourceBooking(result.data);
+      return res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating resource booking:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // GET /api/resource-bookings - Get all resource bookings
+  app.get("/api/resource-bookings", async (req, res) => {
+    try {
+      const { resourceId, startDate, endDate } = req.query;
+      const bookings = await storage.getResourceBookings({
+        resourceId: resourceId as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      return res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching resource bookings:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // PUT /api/resource-bookings/:id/cancel - Cancel resource booking
+  app.put("/api/resource-bookings/:id/cancel", async (req, res) => {
+    try {
+      const booking = await storage.cancelResourceBooking(req.params.id);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      return res.json(booking);
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // GET /api/resources/:id/stats - Get resource usage statistics
+  app.get("/api/resources/:id/stats", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const stats = await storage.getResourceStats(
+        req.params.id,
+        startDate as string,
+        endDate as string
+      );
+      return res.json(stats);
+    } catch (error) {
+      console.error("Error fetching resource stats:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ========== APPOINTMENTS ROUTES (in-memory) ==========
+  app.get("/api/appointments", async (req, res) => {
+    try {
+      const { assignedMemberId, serviceId, status } = req.query;
+      const items = await storage.getAppointments({
+        assignedMemberId: assignedMemberId as string | undefined,
+        serviceId: serviceId as string | undefined,
+        status: status as string | undefined,
+      });
+      return res.json(items);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const body = req.body as any;
+      // Minimal validation
+      if (!body || !body.customerName || !body.email || !body.serviceName || !body.date || !body.time) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const created = await storage.createAppointment({
+        customerName: body.customerName,
+        email: body.email,
+        phone: body.phone,
+        serviceName: body.serviceName,
+        serviceId: body.serviceId,
+        assignedMemberId: body.assignedMemberId,
+        assignedMemberName: body.assignedMemberName,
+        date: body.date,
+        time: body.time,
+        status: body.status || 'upcoming',
+        notes: body.notes,
+      });
+      return res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ========== RAZORPAY CONFIGURATION ROUTES ==========
+  
+  // GET /api/razorpay/config - Get Razorpay public config (Key ID only)
+  app.get("/api/razorpay/config", async (req, res) => {
+    try {
+      // In production, you'd get this from database
+      // For now, return from environment or send signal to frontend to use stored config
+      return res.json({
+        keyId: process.env.RAZORPAY_KEY_ID || '',
+        configured: !!process.env.RAZORPAY_KEY_ID,
+      });
+    } catch (error) {
+      console.error("Error fetching Razorpay config:", error);
+      return res.status(500).json({ error: "Failed to fetch configuration" });
+    }
+  });
+
+  // POST /api/razorpay/config - Save Razorpay configuration
+  app.post("/api/razorpay/config", async (req, res) => {
+    try {
+      const { keyId, keySecret, webhookSecret } = req.body;
+
+      if (!keyId || !keySecret) {
+        return res.status(400).json({ error: "Key ID and Key Secret are required" });
+      }
+
+      // In production, save to database securely
+      // For now, we'll acknowledge the save
+      // The frontend stores it in localStorage for demo purposes
+      
+      return res.json({
+        success: true,
+        message: "Razorpay configuration saved successfully",
+      });
+    } catch (error) {
+      console.error("Error saving Razorpay config:", error);
+      return res.status(500).json({ error: "Failed to save configuration" });
+    }
+  });
+
+  // ========== STRIPE CONFIGURATION ROUTES ==========
+  
+  // GET /api/stripe/config - Get Stripe public config (Publishable Key only)
+  app.get("/api/stripe/config", async (req, res) => {
+    try {
+      return res.json({
+        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+        configured: !!process.env.STRIPE_PUBLISHABLE_KEY,
+      });
+    } catch (error) {
+      console.error("Error fetching Stripe config:", error);
+      return res.status(500).json({ error: "Failed to fetch configuration" });
+    }
+  });
+
+  // POST /api/stripe/config - Save Stripe configuration
+  app.post("/api/stripe/config", async (req, res) => {
+    try {
+      const { publishableKey, secretKey, webhookSecret } = req.body;
+
+      if (!publishableKey || !secretKey) {
+        return res.status(400).json({ error: "Publishable Key and Secret Key are required" });
+      }
+
+      // In production, save to encrypted database
+      
+      return res.json({
+        success: true,
+        message: "Stripe configuration saved successfully",
+      });
+    } catch (error) {
+      console.error("Error saving Stripe config:", error);
+      return res.status(500).json({ error: "Failed to save configuration" });
+    }
+  });
+
+  // ========== PAYPAL CONFIGURATION ROUTES ==========
+  
+  // GET /api/paypal/config - Get PayPal public config (Client ID only)
+  app.get("/api/paypal/config", async (req, res) => {
+    try {
+      return res.json({
+        clientId: process.env.PAYPAL_CLIENT_ID || '',
+        mode: process.env.PAYPAL_MODE || 'sandbox',
+        configured: !!process.env.PAYPAL_CLIENT_ID,
+      });
+    } catch (error) {
+      console.error("Error fetching PayPal config:", error);
+      return res.status(500).json({ error: "Failed to fetch configuration" });
+    }
+  });
+
+  // POST /api/paypal/config - Save PayPal configuration
+  app.post("/api/paypal/config", async (req, res) => {
+    try {
+      const { clientId, clientSecret, mode } = req.body;
+
+      if (!clientId || !clientSecret) {
+        return res.status(400).json({ error: "Client ID and Client Secret are required" });
+      }
+
+      // In production, save to encrypted database
+      
+      return res.json({
+        success: true,
+        message: "PayPal configuration saved successfully",
+      });
+    } catch (error) {
+      console.error("Error saving PayPal config:", error);
+      return res.status(500).json({ error: "Failed to save configuration" });
+    }
+  });
+
+  // ========== RAZORPAY PAYMENT ROUTES ==========
+  
+  // POST /api/payment/create-order - Create Razorpay order
+  app.post("/api/payment/create-order", async (req, res) => {
+    try {
+      const { amount, currency = 'INR', receipt, notes } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Invalid amount" });
+      }
+
+      // Create Razorpay order
+      // Uncomment when you add razorpay package
+      /*
+      const razorpay = new (await import('razorpay')).default({
+        key_id: process.env.RAZORPAY_KEY_ID || '',
+        key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+      });
+
+      const order = await razorpay.orders.create({
+        amount: amount * 100, // Razorpay expects amount in paise
+        currency: currency,
+        receipt: receipt || `receipt_${Date.now()}`,
+        notes: notes || {},
+      });
+
+      return res.json({
+        success: true,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+      });
+      */
+
+      // Mock response for now (remove this when you add real Razorpay)
+      return res.json({
+        success: true,
+        order_id: `order_${Date.now()}`,
+        amount: amount * 100,
+        currency: currency,
+        mock: true, // Remove in production
+      });
+    } catch (error) {
+      console.error("Error creating Razorpay order:", error);
+      return res.status(500).json({ error: "Failed to create payment order" });
+    }
+  });
+
+  // POST /api/payment/verify - Verify Razorpay payment signature
+  app.post("/api/payment/verify", async (req, res) => {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingData } = req.body;
+
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: "Missing payment verification data" });
+      }
+
+      // Verify signature
+      // Uncomment when you add razorpay package
+      /*
+      const crypto = await import('crypto');
+      const secret = process.env.RAZORPAY_KEY_SECRET || '';
+      const generated_signature = crypto
+        .createHmac('sha256', secret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+      if (generated_signature !== razorpay_signature) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Payment verification failed" 
+        });
+      }
+      */
+
+      // Payment verified successfully
+      // Now create the booking and invoice
+      const booking = {
+        ...bookingData,
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        paymentStatus: 'paid',
+        paymentMethod: 'Razorpay',
+        createdAt: new Date().toISOString(),
+      };
+
+      // Save booking to storage
+      // await storage.createAppointment(booking);
+
+      return res.json({
+        success: true,
+        message: "Payment verified successfully",
+        booking: booking,
+        payment_id: razorpay_payment_id,
+      });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      return res.status(500).json({ error: "Payment verification failed" });
+    }
+  });
+
+  // ========== REPORTS & ANALYTICS ROUTES ==========
+  app.get("/api/reports/analytics", async (req, res) => {
+    try {
+      const { startDate, endDate, workspaceId } = req.query;
+      
+      // Get appointments with workspace filter
+      const appointments = await storage.getAppointments({
+        workspaceId: workspaceId as string,
+      });
+      
+      // Get all resource bookings
+      const resourceBookings = await storage.getResourceBookings({
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      
+      // Get invoices from localStorage simulation (in production, this would be from DB)
+      // For now, we'll calculate based on appointments and bookings
+      
+      // Filter by date range if provided
+      let filteredAppointments = appointments;
+      let filteredBookings = resourceBookings;
+      
+      if (startDate && endDate) {
+        const start = new Date(startDate as string);
+        const end = new Date(endDate as string);
+        
+        filteredAppointments = filteredAppointments.filter(apt => {
+          const aptDate = new Date(apt.date);
+          return aptDate >= start && aptDate <= end;
+        });
+        
+        filteredBookings = filteredBookings.filter(booking => {
+          const bookingDate = new Date(booking.startTime);
+          return bookingDate >= start && bookingDate <= end;
+        });
+      }
+      
+      if (startDate && endDate) {
+        const start = new Date(startDate as string);
+        const end = new Date(endDate as string);
+        
+        filteredAppointments = appointments.filter(apt => {
+          const aptDate = new Date(apt.date);
+          return aptDate >= start && aptDate <= end;
+        });
+        
+        filteredBookings = resourceBookings.filter(booking => {
+          const bookingDate = new Date(booking.startTime);
+          return bookingDate >= start && bookingDate <= end;
+        });
+      }
+      
+      // Calculate metrics
+      const totalBookings = filteredAppointments.length + filteredBookings.length;
+      const completedBookings = filteredAppointments.filter(a => a.status === 'completed').length;
+      const cancelledBookings = filteredAppointments.filter(a => a.status === 'cancelled').length + 
+                                 filteredBookings.filter(b => b.status === 'cancelled').length;
+      const upcomingBookings = filteredAppointments.filter(a => a.status === 'upcoming').length;
+      
+      // Revenue calculation (mock data - in production this would come from invoices)
+      const mockRevenuePerBooking = 100; // Base rate
+      const totalRevenue = completedBookings * mockRevenuePerBooking;
+      const pendingRevenue = upcomingBookings * mockRevenuePerBooking * 0.5; // 50% upfront
+      
+      // Service distribution
+      const serviceStats = filteredAppointments.reduce((acc, apt) => {
+        const serviceName = apt.serviceName || 'General';
+        if (!acc[serviceName]) {
+          acc[serviceName] = { name: serviceName, count: 0, revenue: 0 };
+        }
+        acc[serviceName].count++;
+        if (apt.status === 'completed') {
+          acc[serviceName].revenue += mockRevenuePerBooking;
+        }
+        return acc;
+      }, {} as Record<string, { name: string; count: number; revenue: number }>);
+      
+      // Team member performance
+      const teamStats = filteredAppointments.reduce((acc, apt) => {
+        const memberName = apt.assignedMemberName || 'Unassigned';
+        const memberId = apt.assignedMemberId || 'unassigned';
+        if (!acc[memberId]) {
+          acc[memberId] = { 
+            id: memberId, 
+            name: memberName, 
+            totalBookings: 0, 
+            completedBookings: 0,
+            cancelledBookings: 0,
+            revenue: 0 
+          };
+        }
+        acc[memberId].totalBookings++;
+        if (apt.status === 'completed') {
+          acc[memberId].completedBookings++;
+          acc[memberId].revenue += mockRevenuePerBooking;
+        }
+        if (apt.status === 'cancelled') {
+          acc[memberId].cancelledBookings++;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Resource utilization
+      const resourceStats = filteredBookings.reduce((acc, booking) => {
+        if (!acc[booking.resourceId]) {
+          acc[booking.resourceId] = {
+            resourceId: booking.resourceId,
+            totalBookings: 0,
+            totalHours: 0,
+            revenue: 0
+          };
+        }
+        acc[booking.resourceId].totalBookings++;
+        
+        // Calculate hours
+        const start = new Date(booking.startTime);
+        const end = new Date(booking.endTime);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        acc[booking.resourceId].totalHours += hours;
+        acc[booking.resourceId].revenue += hours * 50; // $50/hour mock rate
+        
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Time-based analytics (bookings by day of week)
+      const dayOfWeekStats = filteredAppointments.reduce((acc, apt) => {
+        const date = new Date(apt.date);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+        if (!acc[dayName]) {
+          acc[dayName] = 0;
+        }
+        acc[dayName]++;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Time of day distribution (peak hours)
+      const timeOfDayStats = filteredAppointments.reduce((acc, apt) => {
+        if (apt.time) {
+          const hour = parseInt(apt.time.split(':')[0]);
+          const timeSlot = `${hour}:00`;
+          if (!acc[timeSlot]) {
+            acc[timeSlot] = 0;
+          }
+          acc[timeSlot]++;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Customer insights (new vs returning - mock data)
+      const totalCustomers = new Set(filteredAppointments.map(a => a.email)).size;
+      const newCustomers = Math.floor(totalCustomers * 0.6); // Mock: 60% new
+      const returningCustomers = totalCustomers - newCustomers;
+      
+      // Cancellation rate
+      const cancellationRate = totalBookings > 0 
+        ? ((cancelledBookings / totalBookings) * 100).toFixed(1)
+        : '0';
+      
+      // Average booking value
+      const averageBookingValue = completedBookings > 0 
+        ? (totalRevenue / completedBookings).toFixed(2)
+        : '0';
+      
+      // Growth comparison (mock - compare with previous period)
+      const previousPeriodRevenue = totalRevenue * 0.85; // Mock: 15% growth
+      const revenueGrowth = previousPeriodRevenue > 0
+        ? (((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100).toFixed(1)
+        : '0';
+      
+      const previousPeriodBookings = totalBookings * 0.9; // Mock: 10% growth
+      const bookingsGrowth = previousPeriodBookings > 0
+        ? (((totalBookings - previousPeriodBookings) / previousPeriodBookings) * 100).toFixed(1)
+        : '0';
+      
+      // Assemble response
+      const analytics = {
+        overview: {
+          totalBookings,
+          completedBookings,
+          upcomingBookings,
+          cancelledBookings,
+          cancellationRate: parseFloat(cancellationRate),
+          totalRevenue,
+          pendingRevenue,
+          averageBookingValue: parseFloat(averageBookingValue),
+          revenueGrowth: parseFloat(revenueGrowth),
+          bookingsGrowth: parseFloat(bookingsGrowth),
+        },
+        services: Object.values(serviceStats),
+        team: Object.values(teamStats),
+        resources: Object.values(resourceStats),
+        timeAnalytics: {
+          byDayOfWeek: dayOfWeekStats,
+          byTimeOfDay: timeOfDayStats,
+        },
+        customers: {
+          total: totalCustomers,
+          new: newCustomers,
+          returning: returningCustomers,
+          retentionRate: totalCustomers > 0 
+            ? ((returningCustomers / totalCustomers) * 100).toFixed(1)
+            : '0',
+        },
+        dateRange: {
+          startDate: startDate || 'all',
+          endDate: endDate || 'all',
+        },
+      };
+      
+      return res.json(analytics);
+    } catch (error) {
+      console.error("Error generating analytics:", error);
+      return res.status(500).json({ error: "Failed to generate analytics" });
+    }
+  });
+
+  // ========== SUBSCRIPTION ROUTES ==========
+
+  // POST /api/subscriptions/purchase - Purchase a subscription plan
+  app.post("/api/subscriptions/purchase", async (req, res) => {
+    try {
+      const {
+        planId,
+        billingCycle,
+        paymentMethod,
+        amount,
+        email,
+        phone,
+        gstNumber,
+        companyName,
+        paymentDetails
+      } = req.body;
+
+      // Validate required fields
+      if (!planId || !billingCycle || !paymentMethod || !amount) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: "planId, billingCycle, paymentMethod, and amount are required"
+        });
+      }
+
+      // Simulate payment processing
+      // In production, integrate with payment gateway (Razorpay, Stripe, etc.)
+      const transactionId = `TXN${Date.now()}${Math.random().toString(36).substring(7).toUpperCase()}`;
+      
+      // Calculate end date based on billing cycle
+      const startDate = new Date();
+      const endDate = new Date();
+      if (billingCycle === 'monthly') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
+
+      // Create subscription record
+      const subscription = {
+        id: `SUB${Date.now()}`,
+        planId,
+        planName: planId.charAt(0).toUpperCase() + planId.slice(1),
+        billingCycle,
+        paymentMethod,
+        amount,
+        transactionId,
+        email,
+        phone,
+        gstNumber,
+        companyName,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        status: 'active',
+        paymentDetails,
+        createdAt: new Date().toISOString(),
+      };
+
+      // In production, save to database
+      // await storage.createSubscription(subscription);
+
+      console.log('Subscription created:', subscription);
+
+      return res.json({
+        success: true,
+        transactionId,
+        subscription,
+        message: 'Payment processed successfully'
+      });
+    } catch (error) {
+      console.error("Error processing subscription:", error);
+      return res.status(500).json({ 
+        error: "Failed to process subscription",
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/subscriptions/current - Get current subscription
+  app.get("/api/subscriptions/current", async (req, res) => {
+    try {
+      // In production, get user ID from session/JWT
+      const mockUserId = "demo-user-1";
+      
+      // In production, fetch from database
+      // const subscription = await storage.getCurrentSubscription(mockUserId);
+      
+      // For now, return null or mock data
+      return res.json({
+        subscription: null,
+        message: 'No active subscription found'
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      return res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // GET /api/subscriptions/features - Check if user has access to specific features
+  app.get("/api/subscriptions/features", async (req, res) => {
+    try {
+      const { planId } = req.query;
+      
+      if (!planId) {
+        return res.status(400).json({ error: "planId is required" });
+      }
+
+      // Define feature access based on plan
+      const featureAccess = {
+        classic: {
+          userLogins: 1,
+          roleBasedPermissions: false,
+          onlineBooking: true,
+          pos: true,
+          staffManagement: true,
+          whatsappNotifications: true,
+          loyaltySystem: false,
+          reviewSystem: false,
+          inventoryManagement: false,
+          customDomain: false,
+          hrms: false,
+          giftCards: false,
+        },
+        pro: {
+          userLogins: 5,
+          roleBasedPermissions: true,
+          onlineBooking: true,
+          pos: true,
+          staffManagement: true,
+          whatsappNotifications: true,
+          loyaltySystem: true,
+          reviewSystem: true,
+          inventoryManagement: false,
+          customDomain: false,
+          hrms: false,
+          giftCards: false,
+        },
+        elite: {
+          userLogins: 10,
+          roleBasedPermissions: true,
+          onlineBooking: true,
+          pos: true,
+          staffManagement: true,
+          whatsappNotifications: true,
+          loyaltySystem: true,
+          reviewSystem: true,
+          inventoryManagement: true,
+          customDomain: true,
+          hrms: true,
+          giftCards: true,
+        },
+        custom: {
+          userLogins: 999,
+          roleBasedPermissions: true,
+          onlineBooking: true,
+          pos: true,
+          staffManagement: true,
+          whatsappNotifications: true,
+          loyaltySystem: true,
+          reviewSystem: true,
+          inventoryManagement: true,
+          customDomain: true,
+          hrms: true,
+          giftCards: true,
+        },
+      };
+
+      const features = featureAccess[planId as keyof typeof featureAccess] || featureAccess.classic;
+
+      return res.json({
+        planId,
+        features,
+        hasAccess: true
+      });
+    } catch (error) {
+      console.error("Error checking features:", error);
+      return res.status(500).json({ error: "Failed to check features" });
+    }
+  });
+
+  // POST /api/subscriptions/cancel - Cancel subscription
+  app.post("/api/subscriptions/cancel", async (req, res) => {
+    try {
+      const { subscriptionId, reason } = req.body;
+
+      if (!subscriptionId) {
+        return res.status(400).json({ error: "subscriptionId is required" });
+      }
+
+      // In production, update in database
+      // await storage.cancelSubscription(subscriptionId, reason);
+
+      console.log(`Subscription ${subscriptionId} cancelled. Reason: ${reason}`);
+
+      return res.json({
+        success: true,
+        message: 'Subscription cancelled successfully'
+      });
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      return res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+
+  // ========== WHATSAPP BOT WEBHOOK ROUTES ==========
+  
+  // GET /api/webhooks/whatsapp - Webhook verification (required by Meta)
+  app.get("/api/webhooks/whatsapp", (req, res) => {
+    const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || "zervos_webhook_token_12345";
+    
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      console.log("✅ Webhook verified successfully");
+      return res.status(200).send(challenge);
+    } else {
+      console.error("❌ Webhook verification failed");
+      return res.status(403).send("Forbidden");
+    }
+  });
+
+  // POST /api/webhooks/whatsapp - Receive incoming WhatsApp messages
+  app.post("/api/webhooks/whatsapp", async (req, res) => {
+    try {
+      console.log("📨 Webhook received:", JSON.stringify(req.body, null, 2));
+
+      const body = req.body;
+
+      // Verify this is a WhatsApp message
+      if (body.object !== "whatsapp_business_account") {
+        return res.sendStatus(404);
+      }
+
+      // Process each entry
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          if (change.field === "messages") {
+            const value = change.value;
+
+            // Process incoming messages
+            if (value.messages && value.messages.length > 0) {
+              for (const message of value.messages) {
+                const incomingMessage: WhatsAppIncomingMessage = {
+                  from: message.from,
+                  id: message.id,
+                  timestamp: message.timestamp,
+                  type: message.type,
+                  text: message.text,
+                  button: message.button,
+                  interactive: message.interactive,
+                };
+
+                // Process message through bot engine
+                await botEngine.processIncomingMessage(incomingMessage);
+              }
+            }
+
+            // Process message status updates (delivered, read, etc.)
+            if (value.statuses && value.statuses.length > 0) {
+              for (const status of value.statuses) {
+                console.log("📊 Message status update:", status);
+                // Update message status in database
+                // TODO: Implement status update logic
+              }
+            }
+          }
+        }
+      }
+
+      // Always return 200 to acknowledge receipt
+      return res.sendStatus(200);
+
+    } catch (error) {
+      console.error("❌ Error processing webhook:", error);
+      return res.sendStatus(500);
+    }
+  });
+
+  // ========== BOT FLOW MANAGEMENT ROUTES ==========
+
+  // GET /api/bot/flows - Get all bot flows
+  app.get("/api/bot/flows", async (req, res) => {
+    try {
+      console.log("=== GET /api/bot/flows ===");
+      const flows = await storage.getBotFlows();
+      console.log("Flows retrieved:", Array.isArray(flows) ? flows.length : 'error');
+      
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(Array.isArray(flows) ? flows : []);
+    } catch (error) {
+      console.error("Error in GET /api/bot/flows:", error);
+      return res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // GET /api/bot/flows/:id - Get single bot flow
+  app.get("/api/bot/flows/:id", async (req, res) => {
+    try {
+      const flow = await storage.getBotFlow(req.params.id);
+      if (!flow) {
+        return res.status(404).json({ error: "Bot flow not found" });
+      }
+      return res.json(flow);
+    } catch (error) {
+      console.error("Error fetching bot flow:", error);
+      return res.status(500).json({ error: "Failed to fetch bot flow" });
+    }
+  });
+
+  // POST /api/bot/flows - Create new bot flow
+  app.post("/api/bot/flows", async (req, res) => {
+    try {
+      console.log("=== POST /api/bot/flows ===");
+      console.log("Request body:", JSON.stringify(req.body));
+      
+      const { name, description, triggerType, triggerValue, isActive, flowData } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      
+      const flow = {
+        name,
+        description: description || '',
+        triggerType: triggerType || 'keyword',
+        triggerValue: triggerValue || name.toLowerCase().replace(/\s+/g, '_'),
+        isActive: String(isActive || 'true'),
+        flowData: flowData || { nodes: [], connections: [] },
+        priority: '10',
+      };
+
+      console.log("Creating flow:", JSON.stringify(flow));
+      const result = await storage.createBotFlow(flow as any);
+      
+      if (!result) {
+        throw new Error('Storage.createBotFlow returned null');
+      }
+      
+      console.log("Flow created:", JSON.stringify(result));
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(result);
+    } catch (error) {
+      console.error("Error in POST /api/bot/flows:", error);
+      return res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // PUT /api/bot/flows/:id - Update bot flow
+  app.put("/api/bot/flows/:id", async (req, res) => {
+    try {
+      const flow = await storage.updateBotFlow(req.params.id, req.body);
+      if (!flow) {
+        return res.status(404).json({ error: "Bot flow not found" });
+      }
+      return res.json(flow);
+    } catch (error) {
+      console.error("Error updating bot flow:", error);
+      return res.status(500).json({ error: "Failed to update bot flow" });
+    }
+  });
+
+  // PATCH /api/bot/flows/:id - Partially update bot flow
+  app.patch("/api/bot/flows/:id", async (req, res) => {
+    try {
+      console.log("Patching flow:", req.params.id, "with data:", req.body);
+      const flow = await storage.updateBotFlow(req.params.id, req.body);
+      if (!flow) {
+        return res.status(404).json({ error: "Bot flow not found" });
+      }
+      console.log("Flow patched:", flow);
+      return res.json(flow);
+    } catch (error) {
+      console.error("Error patching bot flow:", error);
+      return res.status(500).json({ error: "Failed to patch bot flow", details: String(error) });
+    }
+  });
+
+  // DELETE /api/bot/flows/:id - Delete bot flow
+  app.delete("/api/bot/flows/:id", async (req, res) => {
+    try {
+      await storage.deleteBotFlow(req.params.id);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting bot flow:", error);
+      return res.status(500).json({ error: "Failed to delete bot flow" });
+    }
+  });
+
+  // ========== CONVERSATION ROUTES ==========
+
+  // GET /api/bot/conversations - Get all conversations
+  app.get("/api/bot/conversations", async (req, res) => {
+    try {
+      const conversations = await storage.getConversations();
+      return res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      return res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  // GET /api/bot/conversations/:id - Get single conversation with messages
+  app.get("/api/bot/conversations/:id", async (req, res) => {
+    try {
+      const conversation = await storage.getConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const messages = await storage.getConversationMessages(req.params.id);
+      
+      return res.json({
+        ...conversation,
+        messages
+      });
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      return res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
+  // POST /api/bot/conversations/:id/close - Close conversation
+  app.post("/api/bot/conversations/:id/close", async (req, res) => {
+    try {
+      await storage.closeConversation(req.params.id);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error closing conversation:", error);
+      return res.status(500).json({ error: "Failed to close conversation" });
+    }
+  });
+
+  // ========== BOT ANALYTICS ROUTES ==========
+
+  // GET /api/bot/analytics - Get bot analytics
+  app.get("/api/bot/analytics", async (req, res) => {
+    try {
+      const analytics = await storage.getBotAnalytics();
+      return res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching bot analytics:", error);
+      return res.status(500).json({ error: "Failed to fetch bot analytics" });
+    }
+  });
+
+  // GET /api/bot/analytics/flows/:flowId - Get analytics for specific flow
+  app.get("/api/bot/analytics/flows/:flowId", async (req, res) => {
+    try {
+      const analytics = await storage.getFlowAnalytics(req.params.flowId);
+      return res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching flow analytics:", error);
+      return res.status(500).json({ error: "Failed to fetch flow analytics" });
+    }
+  });
+
+  // ========== GLOBAL ERROR HANDLER ==========
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("=== Global Error Handler ===");
+    console.error("Error:", err);
+    res.status(err.status || 500).json({
+      error: err.message || "Internal server error",
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  });
+
+  // ========== 404 Handler ==========
+  app.use((req, res) => {
+    res.status(404).json({ error: "Route not found", path: req.path });
+  });
 
   const httpServer = createServer(app);
+
   return httpServer;
 }

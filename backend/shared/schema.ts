@@ -69,14 +69,52 @@ export const userSessions = pgTable("user_sessions", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const auditLogs = pgTable("audit_logs", {
+// WhatsApp Bot Flow Tables
+export const botFlows = pgTable("bot_flows", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventType: text("event_type").notNull(),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  details: jsonb("details"), // Store full event details as JSON
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type").notNull().default("keyword"), // keyword, button, menu, welcome
+  triggerValue: text("trigger_value"), // e.g., "book", "help", "start"
+  isActive: text("is_active").notNull().default("true"),
+  flowData: jsonb("flow_data").notNull(), // Complete flow structure with nodes and edges
+  priority: text("priority").default("10"), // Higher priority flows checked first
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phoneNumber: text("phone_number").notNull(),
+  customerName: text("customer_name"),
+  currentFlowId: varchar("current_flow_id").references(() => botFlows.id),
+  currentNodeId: text("current_node_id"), // Current position in flow
+  sessionData: jsonb("session_data").default(sql`'{}'`), // Store user inputs and context
+  status: text("status").notNull().default("active"), // active, closed, waiting
+  lastMessageAt: text("last_message_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const botMessages = pgTable("bot_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  direction: text("direction").notNull(), // inbound, outbound
+  messageType: text("message_type").notNull(), // text, button, list, template, image, document
+  content: text("content"),
+  metadata: jsonb("metadata"), // Store buttons, list items, template params, etc.
+  wabaMessageId: text("waba_message_id"), // WhatsApp message ID
+  status: text("status").default("sent"), // sent, delivered, read, failed
+  error: text("error"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const botAnalytics = pgTable("bot_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flowId: varchar("flow_id").references(() => botFlows.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").references(() => conversations.id),
+  eventType: text("event_type").notNull(), // flow_started, flow_completed, node_reached, button_clicked, user_dropped
+  eventData: jsonb("event_data"),
+  timestamp: text("timestamp").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -125,6 +163,32 @@ export const updateUserProfileSchema = createInsertSchema(users).pick({
   notificationPreferences: true,
 }).partial();
 
+export const insertBotFlowSchema = createInsertSchema(botFlows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  isActive: z.string().optional().default('true'),
+  triggerType: z.string().optional().default('keyword'),
+  priority: z.string().optional().default('10'),
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  createdAt: true,
+  lastMessageAt: true,
+});
+
+export const insertBotMessageSchema = createInsertSchema(botMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBotAnalyticsSchema = createInsertSchema(botAnalytics).omit({
+  id: true,
+  timestamp: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertOnboarding = z.infer<typeof insertOnboardingSchema>;
@@ -136,4 +200,11 @@ export type ResourceBooking = typeof resourceBookings.$inferSelect;
 export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type UserSession = typeof userSessions.$inferSelect;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
-export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertBotFlow = z.infer<typeof insertBotFlowSchema>;
+export type BotFlow = typeof botFlows.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertBotMessage = z.infer<typeof insertBotMessageSchema>;
+export type BotMessage = typeof botMessages.$inferSelect;
+export type InsertBotAnalytics = z.infer<typeof insertBotAnalyticsSchema>;
+export type BotAnalytics = typeof botAnalytics.$inferSelect;

@@ -782,10 +782,6 @@ export default function WhatsAppConnect() {
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-700">Broadcast messages to customers</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">Send payment confirmations</span>
                 </div>
               </CardContent>

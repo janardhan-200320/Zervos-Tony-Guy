@@ -25,6 +25,9 @@ import {
   TrendingUp,
   Users,
   Zap,
+  Package,
+  Search,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,21 +85,69 @@ export default function FeedbackForm() {
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  
+  // Search states
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  
+  // Filtered lists based on search
+  const filteredServices = availableServices.filter(service => 
+    service.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+    service.category?.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
+  
+  const filteredProducts = availableProducts.filter(product => 
+    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.category?.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   useEffect(() => {
-    // Load services from localStorage
-    const workspaces = JSON.parse(localStorage.getItem('workspaces') || '[]');
-    const activeWorkspace = workspaces.find((w: any) => w.isActive);
+    // Load services, products and team members from localStorage
+    const currentWorkspace = localStorage.getItem('currentWorkspace') || 'default';
     
-    if (activeWorkspace) {
-      const services = JSON.parse(localStorage.getItem(`services_${activeWorkspace.id}`) || '[]');
-      const products = JSON.parse(localStorage.getItem(`products_${activeWorkspace.id}`) || '[]');
-      const members = JSON.parse(localStorage.getItem(`team_members_${activeWorkspace.id}`) || '[]');
+    // Load services from Items > Services section
+    const services = JSON.parse(
+      localStorage.getItem(`zervos_services_${currentWorkspace}`) || '[]'
+    );
+    
+    // Load products from Items > Products section
+    const products = JSON.parse(
+      localStorage.getItem(`zervos_products_${currentWorkspace}`) || '[]'
+    );
+    
+    // Load team members/staff
+    const staff = JSON.parse(
+      localStorage.getItem(`zervos_staff_${currentWorkspace}`) || '[]'
+    );
+    
+    console.log('🔍 Feedback Form - Current Workspace:', currentWorkspace);
+    console.log('🔍 Feedback Form - Loaded Services:', services.length, services);
+    console.log('🔍 Feedback Form - Loaded Products:', products.length, products);
+    console.log('🔍 Feedback Form - Loaded Staff:', staff.length, staff);
+    
+    setAvailableServices(services);
+    setAvailableProducts(products);
+    setTeamMembers(staff);
+    
+    // Listen for changes in localStorage
+    const handleStorageChange = () => {
+      const updatedServices = JSON.parse(
+        localStorage.getItem(`zervos_services_${currentWorkspace}`) || '[]'
+      );
+      const updatedProducts = JSON.parse(
+        localStorage.getItem(`zervos_products_${currentWorkspace}`) || '[]'
+      );
+      const updatedStaff = JSON.parse(
+        localStorage.getItem(`zervos_staff_${currentWorkspace}`) || '[]'
+      );
       
-      setAvailableServices(services);
-      setAvailableProducts(products);
-      setTeamMembers(members);
-    }
+      setAvailableServices(updatedServices);
+      setAvailableProducts(updatedProducts);
+      setTeamMembers(updatedStaff);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Auto-save to localStorage
@@ -534,152 +585,299 @@ export default function FeedbackForm() {
                   <Badge variant="outline" className="ml-auto">Step 2/4</Badge>
                 </h3>
 
-                {/* Multiple Services Selection */}
+                {/* Services Selection - Compact with Search */}
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Select Services Taken</Label>
-                  <div className="border rounded-lg p-4 bg-slate-50 space-y-3">
-                    {/* Service Suggestions */}
-                    <div className="flex flex-wrap gap-2">
-                      {availableServices.map((service) => (
-                        <Badge
-                          key={service.id}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-blue-100 transition-colors"
-                          onClick={() => {
-                            addService(service.name);
-                            if (currentStep < 2) setCurrentStep(2);
-                          }}
-                        >
-                          + {service.name} (₹{service.price})
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {/* Selected Services */}
-                    {formData.selectedServices.length > 0 && (
-                      <div className="space-y-2 pt-3 border-t">
-                        <p className="text-sm font-medium text-slate-700">Selected Services:</p>
-                        {formData.selectedServices.map((service, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="flex items-center gap-2 bg-white p-3 rounded-lg border"
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Select Services <span className="text-red-500">*</span></Label>
+                    {availableServices.length > 0 && (
+                      <span className="text-xs text-slate-500">{filteredServices.length} of {availableServices.length}</span>
+                    )}
+                  </div>
+                  
+                  {availableServices.length > 0 ? (
+                    <>
+                      {/* Innovative Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          value={serviceSearch}
+                          onChange={(e) => setServiceSearch(e.target.value)}
+                          placeholder="Search services by name or category..."
+                          className="pl-10 pr-4 h-10 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 focus:border-blue-400"
+                        />
+                        {serviceSearch && (
+                          <button
+                            onClick={() => setServiceSearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                           >
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{service.name}</p>
-                              <select
-                                value={service.attendee}
-                                onChange={(e) => updateServiceAttendee(index, e.target.value)}
-                                className="text-xs text-slate-600 border rounded px-2 py-1 mt-1 w-full"
-                              >
-                                <option value="">Select staff member...</option>
-                                {teamMembers.map((member) => (
-                                  <option key={member.id} value={member.name}>
-                                    {member.name} - {member.role}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeService(index)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </motion.div>
-                        ))}
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
-                    )}
 
-                    {/* Custom Service Input */}
-                    <div className="pt-2">
-                      <Input
-                        placeholder="Or type a custom service..."
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.target as HTMLInputElement;
-                            if (input.value.trim()) {
-                              addService(input.value.trim());
-                              input.value = '';
-                              if (currentStep < 2) setCurrentStep(2);
-                            }
+                      {/* Compact Service Grid */}
+                      <div className="max-h-60 overflow-y-auto border rounded-lg p-2 bg-slate-50">
+                        {filteredServices.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-2">
+                            {filteredServices.map((service) => {
+                              const isSelected = formData.selectedServices.some(s => s.name === service.name);
+                              return (
+                                <motion.div
+                                  key={service.id}
+                                  whileHover={{ x: 4 }}
+                                  onClick={() => {
+                                    if (!isSelected) {
+                                      addService(service.name);
+                                      if (currentStep < 2) setCurrentStep(2);
+                                    }
+                                  }}
+                                  className={`relative flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                                    isSelected
+                                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
+                                      : 'bg-white hover:bg-blue-50 border border-slate-200'
+                                  }`}
+                                >
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                    isSelected ? 'bg-white/20' : 'bg-blue-100'
+                                  }`}>
+                                    <Sparkles className={`h-5 w-5 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                      {service.name}
+                                    </h4>
+                                    <div className={`flex items-center gap-2 text-xs ${isSelected ? 'text-blue-100' : 'text-slate-600'}`}>
+                                      <span>₹{service.price}</span>
+                                      {service.duration && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {service.duration}m
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle className="h-5 w-5 text-white flex-shrink-0" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Search className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-sm text-slate-500">No services match "{serviceSearch}"</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 text-center">
+                      <Sparkles className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                      <p className="text-xs font-medium text-amber-900 mb-1">No Services Available</p>
+                      <p className="text-xs text-amber-700">
+                        Add services in <strong>Dashboard → Items → Services</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Custom Service Input */}
+                  <div className="mt-3">
+                    <Input
+                      placeholder="+ Add custom service (Press Enter)"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.target as HTMLInputElement;
+                          if (input.value.trim()) {
+                            addService(input.value.trim());
+                            input.value = '';
+                            if (currentStep < 2) setCurrentStep(2);
                           }
-                        }}
-                        className="text-sm"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">Press Enter to add</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Products Selection */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium">Products Purchased (Optional)</Label>
-                  <div className="border rounded-lg p-4 bg-slate-50">
-                    <div className="flex flex-wrap gap-2">
-                      {availableProducts.map((product) => (
-                        <Badge
-                          key={product.id}
-                          variant={formData.selectedProducts.includes(product.name) ? 'default' : 'outline'}
-                          className={`cursor-pointer transition-colors ${
-                            formData.selectedProducts.includes(product.name)
-                              ? 'bg-green-600 hover:bg-green-700'
-                              : 'hover:bg-green-50'
-                          }`}
-                          onClick={() => toggleProduct(product.name)}
-                        >
-                          {formData.selectedProducts.includes(product.name) ? '✓ ' : ''}
-                          {product.name} (₹{product.price})
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {formData.selectedProducts.length > 0 && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-xs text-slate-600">
-                          Selected Products: {formData.selectedProducts.join(', ')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Legacy single service field (for backward compatibility) */}
-                {formData.selectedServices.length === 0 && (
-                  <div className="grid gap-4 pt-3">
-                    <div>
-                      <Label htmlFor="service">Or enter service manually</Label>
-                      <Input
-                        id="service"
-                        value={formData.service}
-                        onChange={(e) => {
-                          setFormData({ ...formData, service: e.target.value });
-                          if (e.target.value && currentStep < 2) setCurrentStep(2);
-                        }}
-                        placeholder="e.g., Haircut, Massage, Consultation"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="attendee">Service Attendee / Staff Name</Label>
-                      <Input
-                        id="attendee"
-                        value={formData.attendee}
-                        onChange={(e) =>
-                          setFormData({ ...formData, attendee: e.target.value })
                         }
-                        placeholder="Who performed the service?"
-                        className="mt-1"
-                      />
-                    </div>
+                      }}
+                      className="text-sm border-dashed"
+                    />
+                  </div>
+                </div>
+
+                {/* Selected Services with Staff Assignment */}
+                {formData.selectedServices.length > 0 && (
+                  <div className="space-y-3 pt-3">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Assign Staff to Services
+                    </Label>
+                    {formData.selectedServices.map((service, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-slate-900">{service.name}</h4>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeService(index)}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {/* Staff Selection - Visual Cards */}
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-slate-600">Who performed this service?</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {teamMembers.map((member) => (
+                                  <div
+                                    key={member.id}
+                                    onClick={() => updateServiceAttendee(index, member.name)}
+                                    className={`relative border rounded-lg p-2 cursor-pointer transition-all ${
+                                      service.attendee === member.name
+                                        ? 'border-purple-500 bg-purple-50'
+                                        : 'border-slate-300 hover:border-purple-300 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+                                        {member.name.charAt(0)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-medium text-slate-900 truncate">{member.name}</p>
+                                        <p className="text-xs text-slate-500 truncate">{member.role}</p>
+                                      </div>
+                                      {service.attendee === member.name && (
+                                        <CheckCircle className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {/* Custom Staff Input */}
+                              <Input
+                                placeholder="Or enter custom staff name..."
+                                value={!teamMembers.find(m => m.name === service.attendee) ? service.attendee : ''}
+                                onChange={(e) => updateServiceAttendee(index, e.target.value)}
+                                className="text-xs mt-2 border-dashed"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 )}
+
+                {/* Products Selection - Compact with Search */}
+                <div className="space-y-3 pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Products Purchased (Optional)</Label>
+                    {availableProducts.length > 0 && (
+                      <span className="text-xs text-slate-500">{filteredProducts.length} of {availableProducts.length}</span>
+                    )}
+                  </div>
+                  
+                  {availableProducts.length > 0 ? (
+                    <>
+                      {/* Innovative Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          placeholder="Search products by name or category..."
+                          className="pl-10 pr-4 h-10 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 focus:border-green-400"
+                        />
+                        {productSearch && (
+                          <button
+                            onClick={() => setProductSearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Compact Product Grid */}
+                      <div className="max-h-48 overflow-y-auto border rounded-lg p-2 bg-slate-50">
+                        {filteredProducts.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {filteredProducts.map((product) => {
+                              const isSelected = formData.selectedProducts.includes(product.name);
+                              return (
+                                <motion.div
+                                  key={product.id}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => toggleProduct(product.name)}
+                                  className={`relative flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                                    isSelected
+                                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md'
+                                      : 'bg-white hover:bg-green-50 border border-slate-200'
+                                  }`}
+                                >
+                                  <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
+                                    isSelected ? 'bg-white/20' : 'bg-green-100'
+                                  }`}>
+                                    <Package className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-green-600'}`} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className={`font-medium text-xs truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                      {product.name}
+                                    </h4>
+                                    <p className={`text-xs ${isSelected ? 'text-green-100' : 'text-slate-600'}`}>
+                                      ₹{product.price}
+                                    </p>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Search className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-sm text-slate-500">No products match "{productSearch}"</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {formData.selectedProducts.length > 0 && (
+                        <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                          <p className="text-xs font-medium text-green-800 mb-2">
+                            {formData.selectedProducts.length} Product{formData.selectedProducts.length > 1 ? 's' : ''} Selected
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {formData.selectedProducts.map((product, idx) => (
+                              <Badge key={idx} variant="default" className="bg-green-600 text-xs">
+                                {product}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-center">
+                      <Package className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                      <p className="text-xs font-medium text-blue-900 mb-1">No Products Available</p>
+                      <p className="text-xs text-blue-700">
+                        Add products in <strong>Dashboard → Items → Products</strong>
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Rating */}

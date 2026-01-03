@@ -1,33 +1,13 @@
-/**
- * Storage Layer - Security Features
- * 
- * SQL INJECTION PROTECTION:
- * ✅ All database operations use parameterized queries (Drizzle ORM)
- * ✅ No string concatenation for SQL queries
- * ✅ Input validation before database operations
- * ✅ Type-safe query builder prevents injection
- * ✅ Prepared statements used automatically
- * 
- * ENCRYPTION:
- * ✅ Passwords hashed with bcrypt (one-way)
- * ✅ Sensitive fields encrypted at rest (email, phone)
- * ✅ AES-256-GCM encryption for PII data
- * 
- * IMPORTANT: 
- * - Never use raw SQL queries without parameterization
- * - Always encrypt sensitive user data before storage
- * - Use field-level encryption for PII (Personally Identifiable Information)
- */
-
-import { type User, type InsertUser, type Onboarding, type InsertOnboarding, type Resource, type InsertResource, type ResourceBooking, type InsertResourceBooking, type UpdateUserProfile, type UserSession, type InsertUserSession } from "@shared/schema";
+import { type User, type InsertUser, type Onboarding, type InsertOnboarding, type Resource, type InsertResource, type ResourceBooking, type InsertResourceBooking, type UpdateUserProfile, type UserSession, type InsertUserSession, type BotFlow, type InsertBotFlow, type Conversation, type InsertConversation, type BotMessage, type InsertBotMessage, type BotAnalytics, type InsertBotAnalytics } from "@shared/schema";
 import { randomUUID } from "crypto";
-import * as bcrypt from "bcrypt";
-import { DataEncryption } from "./encryption";
 
-const BCRYPT_ROUNDS = 10;
+// Define missing types locally
+export interface Appointment {
+  id: string;
+  [key: string]: any;
+}
 
-// Fields that should be encrypted at rest
-const ENCRYPTED_USER_FIELDS = ["email", "phone", "twoFactorSecret"] as const;
+export type InsertAppointment = Omit<Appointment, 'id'>;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -35,7 +15,6 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<User | undefined>;
   updateUserPassword(userId: string, newPassword: string): Promise<boolean>;
-  verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean>;
   getUserSessions(userId: string): Promise<UserSession[]>;
   createUserSession(session: InsertUserSession): Promise<UserSession>;
   deleteUserSession(sessionId: string): Promise<void>;
@@ -61,6 +40,23 @@ export interface IStorage {
   // Appointments (sales call bookings)
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   getAppointments(filters?: { assignedMemberId?: string; serviceId?: string; status?: string }): Promise<Appointment[]>;
+  
+  // Bot flow methods
+  getBotFlows(): Promise<BotFlow[]>;
+  getBotFlow(id: string): Promise<BotFlow | undefined>;
+  createBotFlow(flow: InsertBotFlow): Promise<BotFlow>;
+  updateBotFlow(id: string, flow: Partial<InsertBotFlow>): Promise<BotFlow | undefined>;
+  deleteBotFlow(id: string): Promise<void>;
+  
+  // Conversation methods
+  getConversations(): Promise<Conversation[]>;
+  getConversation(id: string): Promise<Conversation | undefined>;
+  getConversationMessages(conversationId: string): Promise<BotMessage[]>;
+  closeConversation(id: string): Promise<void>;
+  
+  // Bot analytics methods
+  getBotAnalytics(): Promise<any>;
+  getFlowAnalytics(flowId: string): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -70,6 +66,10 @@ export class MemStorage implements IStorage {
   private resourceBookings: Map<string, ResourceBooking>;
   private appointments: Map<string, Appointment>;
   private userSessions: Map<string, UserSession>;
+  private botFlows: Map<string, BotFlow>;
+  private conversations: Map<string, Conversation>;
+  private botMessages: Map<string, BotMessage>;
+  private botAnalytics: Map<string, BotAnalytics>;
 
   constructor() {
     this.users = new Map();
@@ -78,37 +78,28 @@ export class MemStorage implements IStorage {
     this.resourceBookings = new Map();
     this.appointments = new Map();
     this.userSessions = new Map();
+    this.botFlows = new Map();
+    this.conversations = new Map();
+    this.botMessages = new Map();
+    this.botAnalytics = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-
-    // Decrypt sensitive fields before returning
-    return DataEncryption.decryptFields(user, ENCRYPTED_USER_FIELDS);
+    return this.users.get(id);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const user = Array.from(this.users.values()).find(
-      (u) => u.username === username,
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username,
     );
-    if (!user) return undefined;
-
-    // Decrypt sensitive fields before returning
-    return DataEncryption.decryptFields(user, ENCRYPTED_USER_FIELDS);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const now = new Date().toISOString();
-    
-    // Hash password before storing
-    const hashedPassword = await bcrypt.hash(insertUser.password, BCRYPT_ROUNDS);
-    
-    let user: User = { 
+    const user: User = { 
       ...insertUser, 
       id,
-      password: hashedPassword,
       name: null,
       email: null,
       phone: null,
@@ -121,14 +112,8 @@ export class MemStorage implements IStorage {
       createdAt: now,
       updatedAt: now,
     };
-
-    // Encrypt sensitive fields before storing
-    user = DataEncryption.encryptFields(user, ENCRYPTED_USER_FIELDS);
-    
     this.users.set(id, user);
-    
-    // Return decrypted version to the application
-    return DataEncryption.decryptFields(user, ENCRYPTED_USER_FIELDS);
+    return user;
   }
 
   async updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<User | undefined> {
@@ -137,19 +122,14 @@ export class MemStorage implements IStorage {
       return undefined;
     }
 
-    let updated: User = {
+    const updated: User = {
       ...user,
       ...profile,
       updatedAt: new Date().toISOString(),
     };
 
-    // Encrypt sensitive fields before storing
-    updated = DataEncryption.encryptFields(updated, ENCRYPTED_USER_FIELDS);
-
     this.users.set(userId, updated);
-    
-    // Return decrypted version
-    return DataEncryption.decryptFields(updated, ENCRYPTED_USER_FIELDS);
+    return updated;
   }
 
   async updateUserPassword(userId: string, newPassword: string): Promise<boolean> {
@@ -158,21 +138,14 @@ export class MemStorage implements IStorage {
       return false;
     }
 
-    // Hash new password before storing
-    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-
     const updated: User = {
       ...user,
-      password: hashedPassword,
+      password: newPassword,
       updatedAt: new Date().toISOString(),
     };
 
     this.users.set(userId, updated);
     return true;
-  }
-
-  async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-    return bcrypt.compare(plainPassword, hashedPassword);
   }
 
   async getUserSessions(userId: string): Promise<UserSession[]> {
@@ -254,8 +227,6 @@ export class MemStorage implements IStorage {
   }): Promise<Resource[]> {
     let resources = Array.from(this.resources.values());
 
-    // SQL Injection Protection: All filters are compared using strict equality
-    // No raw SQL or string interpolation is used
     if (filters?.type) {
       resources = resources.filter(r => r.type === filters.type);
     }
@@ -265,8 +236,6 @@ export class MemStorage implements IStorage {
     }
 
     if (filters?.search) {
-      // Safe string comparison - no SQL injection risk in memory storage
-      // In database implementation, this would use parameterized queries
       const searchLower = filters.search.toLowerCase();
       resources = resources.filter(r => 
         r.name.toLowerCase().includes(searchLower) ||
@@ -461,25 +430,151 @@ export class MemStorage implements IStorage {
     }
     return list;
   }
+  
+  // ========== BOT FLOW METHODS ==========
+  
+  async getBotFlows(): Promise<BotFlow[]> {
+    return Array.from(this.botFlows.values());
+  }
+  
+  async getBotFlow(id: string): Promise<BotFlow | undefined> {
+    return this.botFlows.get(id);
+  }
+  
+  async createBotFlow(flow: InsertBotFlow): Promise<BotFlow> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const botFlow: BotFlow = {
+      id,
+      ...flow,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.botFlows.set(id, botFlow);
+    return botFlow;
+  }
+  
+  async updateBotFlow(id: string, flow: Partial<InsertBotFlow>): Promise<BotFlow | undefined> {
+    const existing = this.botFlows.get(id);
+    if (!existing) return undefined;
+    
+    const updated: BotFlow = {
+      ...existing,
+      ...flow,
+      updatedAt: new Date().toISOString(),
+    };
+    this.botFlows.set(id, updated);
+    return updated;
+  }
+  
+  async deleteBotFlow(id: string): Promise<void> {
+    this.botFlows.delete(id);
+  }
+  
+  // ========== CONVERSATION METHODS ==========
+  
+  async getConversations(): Promise<Conversation[]> {
+    return Array.from(this.conversations.values())
+      .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }
+  
+  async getConversation(id: string): Promise<Conversation | undefined> {
+    return this.conversations.get(id);
+  }
+  
+  async getConversationMessages(conversationId: string): Promise<BotMessage[]> {
+    return Array.from(this.botMessages.values())
+      .filter(m => m.conversationId === conversationId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+  
+  async closeConversation(id: string): Promise<void> {
+    const conversation = this.conversations.get(id);
+    if (conversation) {
+      conversation.status = "closed";
+      this.conversations.set(id, conversation);
+    }
+  }
+  
+  // ========== BOT ANALYTICS METHODS ==========
+  
+  async getBotAnalytics(): Promise<any> {
+    const analytics = Array.from(this.botAnalytics.values());
+    const conversations = Array.from(this.conversations.values());
+    const messages = Array.from(this.botMessages.values());
+    
+    const totalConversations = conversations.length;
+    const activeConversations = conversations.filter(c => c.status === 'active').length;
+    const completedConversations = conversations.filter(c => c.status === 'closed').length;
+    const totalMessages = messages.length;
+    const inboundMessages = messages.filter(m => m.direction === 'inbound').length;
+    const outboundMessages = messages.filter(m => m.direction === 'outbound').length;
+    
+    // Flow performance
+    const flowStats = Array.from(this.botFlows.values()).map(flow => {
+      const flowAnalytics = analytics.filter(a => a.flowId === flow.id);
+      const started = flowAnalytics.filter(a => a.eventType === 'flow_started').length;
+      const completed = flowAnalytics.filter(a => a.eventType === 'flow_completed').length;
+      const completionRate = started > 0 ? ((completed / started) * 100).toFixed(1) : '0';
+      
+      return {
+        flowId: flow.id,
+        flowName: flow.name,
+        started,
+        completed,
+        completionRate: `${completionRate}%`,
+      };
+    });
+    
+    return {
+      totalConversations,
+      activeConversations,
+      completedConversations,
+      totalMessages,
+      inboundMessages,
+      outboundMessages,
+      flowStats,
+      recentActivity: analytics.slice(-10).reverse(),
+    };
+  }
+  
+  async getFlowAnalytics(flowId: string): Promise<any> {
+    const analytics = Array.from(this.botAnalytics.values()).filter(a => a.flowId === flowId);
+    const flow = this.botFlows.get(flowId);
+    
+    if (!flow) {
+      return null;
+    }
+    
+    const started = analytics.filter(a => a.eventType === 'flow_started').length;
+    const completed = analytics.filter(a => a.eventType === 'flow_completed').length;
+    const dropped = analytics.filter(a => a.eventType === 'user_dropped').length;
+    const completionRate = started > 0 ? ((completed / started) * 100).toFixed(1) : '0';
+    
+    // Node analytics
+    const nodeReached = analytics.filter(a => a.eventType === 'node_reached');
+    const nodeStats = nodeReached.reduce((acc: any, item) => {
+      const nodeId = (item.eventData as any)?.nodeId;
+      if (nodeId) {
+        acc[nodeId] = (acc[nodeId] || 0) + 1;
+      }
+      return acc;
+    }, {});
+    
+    return {
+      flowId,
+      flowName: flow.name,
+      started,
+      completed,
+      dropped,
+      completionRate: `${completionRate}%`,
+      nodeStats,
+      timeline: analytics.slice(-20).reverse(),
+    };
+  }
 }
 
 export const storage = new MemStorage();
 
 // Lightweight appointment types (in-memory only)
-export interface Appointment {
-  id: string;
-  customerName: string;
-  email: string;
-  phone?: string;
-  serviceName: string;
-  serviceId?: string;
-  assignedMemberId?: string;
-  assignedMemberName?: string;
-  workspaceId?: string; // Add workspace support
-  date: string; // YYYY-MM-DD
-  time: string; // e.g., 10:30 AM
-  status: 'upcoming' | 'completed' | 'cancelled';
-  notes?: string;
-}
 
-export type InsertAppointment = Omit<Appointment, 'id'>;

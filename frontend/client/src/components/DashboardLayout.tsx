@@ -25,6 +25,9 @@ import {
   TrendingDown,
   Calculator,
   MessageCircle,
+  Bot,
+  MessageSquare,
+  BarChart3,
 } from 'lucide-react';
 import NotificationDropdown from './NotificationDropdown';
 import NotificationCenter from './NotificationCenter';
@@ -61,8 +64,23 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [itemsExpanded, setItemsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [loyaltyExpanded, setLoyaltyExpanded] = useState(false);
-  const [whatsappExpanded, setWhatsappExpanded] = useState(false);
   const { selectedWorkspace } = useWorkspace();
+
+  // Auto-expand WhatsApp section if on any WhatsApp/bot page
+  const isWhatsAppPage = location.includes('/waba-config') || 
+                         location.includes('/marketing-campaigns') || 
+                         location.includes('/bot-flow-builder') || 
+                         location.includes('/conversations') || 
+                         location.includes('/bot-analytics') ||
+                         location.includes('/admin/whatsapp');
+  const [whatsappExpanded, setWhatsappExpanded] = useState(isWhatsAppPage);
+
+  useEffect(() => {
+    // Auto-expand WhatsApp section when navigating to WhatsApp pages
+    if (isWhatsAppPage) {
+      setWhatsappExpanded(true);
+    }
+  }, [location]);
 
   useEffect(() => {
     const savedCompany = safeGetItem<Company | null>('zervos_company', null);
@@ -125,6 +143,12 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const whatsappSubNavigation = [
     { name: 'Connect', icon: MessageCircle, path: '/dashboard/admin/whatsapp/connect' },
     { name: 'Settings', icon: Settings, path: '/dashboard/admin/whatsapp' },
+    { name: 'WABA Config', icon: MessageCircle, path: '/dashboard/waba-config' },
+    { name: 'Marketing Campaigns', icon: TrendingUp, path: '/dashboard/marketing-campaigns' },
+    { name: '─────────', icon: null, path: '', separator: true },
+    { name: '🤖 Bot Flows', icon: Bot, path: '/dashboard/bot-flows' },
+    { name: '💬 Conversations', icon: MessageSquare, path: '/dashboard/conversations' },
+    { name: '📊 Bot Analytics', icon: BarChart3, path: '/dashboard/bot-analytics' },
   ];
 
   const secondaryNavigation = [
@@ -144,47 +168,47 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
         const active = isActive(item.path);
 
         return (
-          <Link key={item.path} href={item.path}>
-            <a
-              onMouseEnter={() => !expanded && setHoveredNav(item.path)}
-              onMouseLeave={() => setHoveredNav(prev => (prev === item.path ? null : prev))}
-              className={`relative flex items-center ${
-                expanded ? 'gap-3 px-4 py-3' : 'justify-center px-2 py-3'
-              } text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded-xl overflow-visible`}
+          <Link 
+            key={item.path} 
+            href={item.path}
+            onMouseEnter={() => !expanded && setHoveredNav(item.path)}
+            onMouseLeave={() => setHoveredNav(prev => (prev === item.path ? null : prev))}
+            className={`relative flex items-center ${
+              expanded ? 'gap-3 px-4 py-3' : 'justify-center px-2 py-3'
+            } text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded-xl overflow-visible`}
+          >
+            <motion.span
+              className="relative z-10 flex items-center justify-center"
+              initial={false}
+              animate={{ scale: active ? 1.05 : 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             >
+              <item.icon size={20} className={active ? 'text-white' : 'text-slate-300'} />
+            </motion.span>
+
+            {expanded && <span className={`relative z-10 font-medium ${active ? 'text-white' : 'text-slate-200'}`}>{item.name}</span>}
+
+            {active && (
               <motion.span
-                className="relative z-10 flex items-center justify-center"
-                initial={false}
-                animate={{ scale: active ? 1.05 : 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              >
-                <item.icon size={20} className={active ? 'text-white' : 'text-slate-300'} />
-              </motion.span>
+                layoutId="nav-active"
+                className="absolute inset-0 rounded-xl bg-slate-700 shadow-lg"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              />
+            )}
 
-              {expanded && <span className={`relative z-10 font-medium ${active ? 'text-white' : 'text-slate-200'}`}>{item.name}</span>}
-
-              {active && (
+            <AnimatePresence>
+              {hoveredNav === item.path && (
                 <motion.span
-                  layoutId="nav-active"
-                  className="absolute inset-0 rounded-xl bg-slate-700 shadow-lg"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.2 }}
+                  className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-1 ring-slate-600"
+                >
+                  {item.name}
+                </motion.span>
               )}
-
-              <AnimatePresence>
-                {hoveredNav === item.path && (
-                  <motion.span
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.2 }}
-                    className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-white shadow-lg ring-1 ring-slate-600"
-                  >
-                    {item.name}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </a>
+            </AnimatePresence>
           </Link>
         );
       })}
@@ -489,33 +513,45 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
               className="overflow-hidden"
             >
               {whatsappSubNavigation.map((subItem) => {
+                // Render separator
+                if (subItem.separator) {
+                  return (
+                    <div key="bot-separator" className="px-12 py-2">
+                      <div className="border-t border-green-700/30"></div>
+                      <div className="text-xs text-green-400 font-semibold mt-2 mb-1">
+                        🤖 Bot Automation
+                      </div>
+                    </div>
+                  );
+                }
+
                 const subActive = isActive(subItem.path);
                 return (
-                  <Link key={subItem.path} href={subItem.path}>
-                    <a
-                      className={`relative flex items-center gap-3 pl-12 pr-4 py-2.5 text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded-xl`}
+                  <Link 
+                    key={subItem.path} 
+                    href={subItem.path}
+                    className={`relative flex items-center gap-3 pl-12 pr-4 py-2.5 text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded-xl`}
+                  >
+                    <motion.span
+                      className="relative z-10 flex items-center justify-center"
+                      initial={false}
+                      animate={{ scale: subActive ? 1.05 : 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                     >
+                      {subItem.icon && <subItem.icon size={18} className={subActive ? 'text-white' : 'text-green-400'} />}
+                    </motion.span>
+
+                    <span className={`relative z-10 font-medium ${subActive ? 'text-white' : 'text-slate-300'}`}>
+                      {subItem.name}
+                    </span>
+
+                    {subActive && (
                       <motion.span
-                        className="relative z-10 flex items-center justify-center"
-                        initial={false}
-                        animate={{ scale: subActive ? 1.05 : 1 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                      >
-                        <subItem.icon size={18} className={subActive ? 'text-white' : 'text-green-400'} />
-                      </motion.span>
-
-                      <span className={`relative z-10 font-medium ${subActive ? 'text-white' : 'text-slate-300'}`}>
-                        {subItem.name}
-                      </span>
-
-                      {subActive && (
-                        <motion.span
-                          layoutId="nav-active"
-                          className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-600 to-green-700 shadow-lg"
-                          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                        />
-                      )}
-                    </a>
+                        layoutId="nav-active"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-600 to-green-700 shadow-lg"
+                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      />
+                    )}
                   </Link>
                 );
               })}
@@ -747,16 +783,18 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link href="/dashboard/subscription-plans">
-                <button className="group hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:scale-105 hover:shadow-lg sm:inline-flex">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
-                  </span>
-                  <span>Upgrade Now</span>
-                  <motion.svg
-                    className="h-4 w-4"
-                    fill="none"
+              <Link 
+                href="/dashboard/subscription-plans"
+                className="group hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:scale-105 hover:shadow-lg sm:inline-flex"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+                </span>
+                <span>Upgrade Now</span>
+                <motion.svg
+                  className="h-4 w-4"
+                  fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                     initial={{ x: 0 }}
@@ -765,7 +803,6 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </motion.svg>
-                </button>
               </Link>
               <div className="hidden sm:inline-flex">
                 <TimeSlotsButton />

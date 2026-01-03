@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { SuperAdminProvider } from "@/superadmin/contexts/SuperAdminContext";
 import AccountPage from "@/pages/Account";
 import AdminCenterPage from "@/pages/admin";
 import BranchManagement from '@/pages/admin/branches';
@@ -46,7 +47,27 @@ import TeamLogin from "@/pages/team/TeamLogin";
 import TeamPublicView from "@/pages/team/TeamPublicView";
 import TimeSlotsPage from '@/pages/time-slots';
 import VendorManagementPage from '@/pages/vendor-management';
+import WABAConfigPage from '@/pages/waba-config';
+import MarketingCampaignsPage from '@/pages/marketing-campaigns';
+import BotFlowsDashboard from '@/pages/bot-flows-dashboard';
+import ConversationsPage from '@/pages/conversations';
+import BotAnalyticsPage from '@/pages/bot-analytics';
+import VisualBotFlowBuilderPage from '@/pages/visual-bot-flow-builder-page';
 import WorkflowsPage from "@/pages/workflows";
+
+// Super Admin Pages
+import SuperAdminDashboard from "@/superadmin/pages/SuperAdminDashboard";
+import ClientsManagement from "@/superadmin/pages/ClientsManagement";
+import SuperAdminSubscriptionPlans from "@/superadmin/pages/SubscriptionPlans";
+import SupportTickets from "@/superadmin/pages/SupportTickets";
+import RevenueAnalytics from "@/superadmin/pages/RevenueAnalytics";
+import SystemSettings from "@/superadmin/pages/SystemSettings";
+import Announcements from "@/superadmin/pages/Announcements";
+import ActivityLogs from "@/superadmin/pages/ActivityLogs";
+import BillingManagement from "@/superadmin/pages/BillingManagement";
+import FeatureFlags from "@/superadmin/pages/FeatureFlags";
+import RealTimeMetrics from "@/superadmin/pages/RealTimeMetrics";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
@@ -76,6 +97,39 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   return session ? <Component {...rest} /> : null;
 }
 
+// Super Admin Route Protection
+function SuperAdminRoute({ component: Component, ...rest }: any) {
+  const [, setLocation] = useLocation();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkSuperAdmin = () => {
+      const superAdminFlag = localStorage.getItem('zervos_superadmin');
+      if (superAdminFlag === 'true') {
+        setIsSuperAdmin(true);
+      } else {
+        setLocation('/login');
+      }
+      setIsChecking(false);
+    };
+    checkSuperAdmin();
+  }, [setLocation]);
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto"></div>
+          <p className="text-white mt-4">Verifying super admin access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return isSuperAdmin ? <Component {...rest} /> : null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -86,6 +140,20 @@ function Router() {
       <Route path="/booking" component={PublicBookingPage} />
       <Route path="/book/:serviceId" component={PublicBookingPage} />
       <Route path="/booking/:workspaceId" component={PublicBookingPage} />
+      
+      {/* Super Admin Routes */}
+      <Route path="/superadmin">{() => <SuperAdminRoute component={SuperAdminDashboard} />}</Route>
+      <Route path="/superadmin/clients">{() => <SuperAdminRoute component={ClientsManagement} />}</Route>
+      <Route path="/superadmin/subscriptions">{() => <SuperAdminRoute component={SuperAdminSubscriptionPlans} />}</Route>
+      <Route path="/superadmin/billing">{() => <SuperAdminRoute component={BillingManagement} />}</Route>
+      <Route path="/superadmin/tickets">{() => <SuperAdminRoute component={SupportTickets} />}</Route>
+      <Route path="/superadmin/analytics">{() => <SuperAdminRoute component={RevenueAnalytics} />}</Route>
+      <Route path="/superadmin/metrics">{() => <SuperAdminRoute component={RealTimeMetrics} />}</Route>
+      <Route path="/superadmin/features">{() => <SuperAdminRoute component={FeatureFlags} />}</Route>
+      <Route path="/superadmin/settings">{() => <SuperAdminRoute component={SystemSettings} />}</Route>
+      <Route path="/superadmin/announcements">{() => <SuperAdminRoute component={Announcements} />}</Route>
+      <Route path="/superadmin/activity">{() => <SuperAdminRoute component={ActivityLogs} />}</Route>
+
   <Route path="/team/login" component={TeamLogin} />
   <Route path="/team" component={TeamDashboard} />
   <Route path="/team/public/:memberId" component={TeamPublicView} />
@@ -108,7 +176,13 @@ function Router() {
       <Route path="/dashboard/admin/branches">{() => <ProtectedRoute component={BranchManagement} />}</Route>
       <Route path="/dashboard/admin/custom-labels">{() => <ProtectedRoute component={CustomLabelsPage} />}</Route>
       <Route path="/dashboard/admin/whatsapp">{() => <ProtectedRoute component={WhatsAppSettings} />}</Route>
-      <Route path="/dashboard/admin/whatsapp/connect">{() => <ProtectedRoute component={WhatsAppConnect} />}</Route>
+      <Route path="/dashboard/admin/whatsapp/connect">{() => <ProtectedRoute component={WhatsAppConnect} />}</Route>  <Route path="/dashboard/waba-config">{() => <ProtectedRoute component={WABAConfigPage} />}</Route>
+  <Route path="/dashboard/marketing-campaigns">{() => <ProtectedRoute component={MarketingCampaignsPage} />}</Route>
+  <Route path="/dashboard/bot-flows">{() => <ProtectedRoute component={BotFlowsDashboard} />}</Route>
+  <Route path="/dashboard/bot-flows/builder">{() => <ProtectedRoute component={VisualBotFlowBuilderPage} />}</Route>
+  <Route path="/dashboard/bot-flows/builder/:id">{() => <ProtectedRoute component={VisualBotFlowBuilderPage} />}</Route>
+  <Route path="/dashboard/conversations">{() => <ProtectedRoute component={ConversationsPage} />}</Route>
+  <Route path="/dashboard/bot-analytics">{() => <ProtectedRoute component={BotAnalyticsPage} />}</Route>
       <Route path="/dashboard/workspace/:id">{() => <ProtectedRoute component={WorkspaceView} />}</Route>
       <Route path="/dashboard/salespersons">{() => <ProtectedRoute component={SalespersonsPage} />}</Route>
   <Route path="/dashboard/invoices">{() => <ProtectedRoute component={InvoicesPage} />}</Route>
@@ -160,13 +234,15 @@ function Router() {
       <AuthProvider>
         <WorkspaceProvider>
           <NotificationProvider>
-            <TooltipProvider>
-              <ErrorBoundary>
-                <Toaster />
-                <TopProgressBar />
-                <Router />
-              </ErrorBoundary>
-            </TooltipProvider>
+            <SuperAdminProvider>
+              <TooltipProvider>
+                <ErrorBoundary>
+                  <Toaster />
+                  <TopProgressBar />
+                  <Router />
+                </ErrorBoundary>
+              </TooltipProvider>
+            </SuperAdminProvider>
           </NotificationProvider>
         </WorkspaceProvider>
       </AuthProvider>

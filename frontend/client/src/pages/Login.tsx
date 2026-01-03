@@ -64,6 +64,10 @@ export default function LoginPage() {
     duration: 3 + Math.random() * 4,
   }));
 
+  // Super Admin credentials
+  const SUPER_ADMIN_EMAIL = 'superadmin@zervos.com';
+  const SUPER_ADMIN_PASSWORD = 'SuperAdmin@2025';
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginForm.email || !loginForm.password) {
@@ -77,6 +81,19 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
+    // Check for Super Admin credentials first
+    if (loginForm.email === SUPER_ADMIN_EMAIL && loginForm.password === SUPER_ADMIN_PASSWORD) {
+      localStorage.setItem('zervos_superadmin', 'true');
+      localStorage.setItem('zervos_superadmin_email', SUPER_ADMIN_EMAIL);
+      toast({
+        title: '🔐 Super Admin Access',
+        description: 'Welcome to the Super Admin Panel!',
+      });
+      setIsLoading(false);
+      setLocation('/superadmin');
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: loginForm.email,
@@ -84,6 +101,10 @@ export default function LoginPage() {
       });
 
       if (error) throw error;
+
+      // Clear any super admin flags for regular users
+      localStorage.removeItem('zervos_superadmin');
+      localStorage.removeItem('zervos_superadmin_email');
 
       toast({
         title: '✅ Login Successful!',
